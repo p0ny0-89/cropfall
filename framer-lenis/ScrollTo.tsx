@@ -1,5 +1,5 @@
 import { addPropertyControls, ControlType } from "framer"
-import { useCallback, Children, isValidElement, cloneElement } from "react"
+import { useCallback } from "react"
 
 /**
  * @framerSupportedLayoutHeight any
@@ -7,62 +7,46 @@ import { useCallback, Children, isValidElement, cloneElement } from "react"
  * @framerDisableUnlink
  */
 export default function ScrollTo({
-    children,
     target,
     offset,
     duration,
-    easing,
     align,
+    showHint,
 }) {
     const handleClick = useCallback(() => {
         const lenis = (window as any).lenis
-        if (!lenis) return
+        if (!lenis || !target?.current) return
 
-        if (target?.current) {
-            lenis.scrollTo(target.current, {
-                offset,
-                duration: duration > 0 ? duration : undefined,
-                align,
-            })
-        }
+        lenis.scrollTo(target.current, {
+            offset,
+            duration: duration > 0 ? duration : undefined,
+            align,
+        })
     }, [target, offset, duration, align])
 
     return (
         <div
             onClick={handleClick}
             style={{
-                cursor: "pointer",
                 width: "100%",
                 height: "100%",
-                display: "contents",
+                cursor: "pointer",
+                background: showHint ? "rgba(0, 153, 255, 0.15)" : "transparent",
+                outline: showHint ? "1px dashed rgba(0, 153, 255, 0.8)" : "none",
+                pointerEvents: "auto",
             }}
-        >
-            {Children.map(children, (child) =>
-                isValidElement(child)
-                    ? cloneElement(child, {
-                          style: {
-                              ...child.props.style,
-                              pointerEvents: "auto",
-                          },
-                      })
-                    : child
-            )}
-        </div>
+        />
     )
 }
 
 ScrollTo.displayName = "Scroll To Section"
 
 addPropertyControls(ScrollTo, {
-    children: {
-        type: ControlType.ComponentInstance,
-        title: "Trigger",
-        description: "The clickable element (arrow, button, etc.)",
-    },
     target: {
         title: "Target Section",
         type: ControlType.ScrollSectionRef,
-        description: "The scroll section to jump to.",
+        description:
+            "Place this hotspot over your arrow / button on the canvas, then pick the section to jump to.",
     },
     align: {
         type: ControlType.Enum,
@@ -71,7 +55,6 @@ addPropertyControls(ScrollTo, {
         displaySegmentedControl: true,
         options: ["start", "center", "end"],
         optionTitles: ["Top", "Center", "Bottom"],
-        description: "Where the target aligns in the viewport.",
     },
     offset: {
         type: ControlType.Number,
@@ -79,7 +62,6 @@ addPropertyControls(ScrollTo, {
         defaultValue: 0,
         step: 1,
         unit: "px",
-        description: "Extra pixel offset from the target.",
     },
     duration: {
         type: ControlType.Number,
@@ -89,6 +71,13 @@ addPropertyControls(ScrollTo, {
         min: 0,
         max: 5,
         unit: "s",
-        description: "Scroll duration in seconds. 0 = use Lenis default.",
+        description: "0 = use Lenis default.",
+    },
+    showHint: {
+        type: ControlType.Boolean,
+        title: "Show Hotspot",
+        defaultValue: true,
+        description:
+            "Visualize the clickable area in Preview. Turn off before publishing.",
     },
 })
