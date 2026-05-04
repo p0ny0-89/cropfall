@@ -129,7 +129,7 @@ export default function Component({
     )
 }
 
-Component.displayName = "Lenis"
+Component.displayName = "Scroll Container"
 
 addPropertyControls(Component, {
     smooth: {
