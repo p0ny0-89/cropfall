@@ -547,7 +547,10 @@ export default function ScrollImageSequence(props: Props) {
             } else {
                 // image taller — crop top/bottom
                 uvScaleY = imgRatio / canRatio
-                uvOffsetY = (1.0 - uvScaleY) * (objectPositionY / 100)
+                // Invert Y because the shader flips texUv.y (1.0 - y)
+                // for WebGL texture orientation. Without this, Y=100%
+                // (CSS bottom) maps to the top of the texture.
+                uvOffsetY = (1.0 - uvScaleY) * (1.0 - objectPositionY / 100)
             }
 
             // Set uniforms
