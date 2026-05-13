@@ -320,56 +320,53 @@ export default function ScrollImageSequence(props: Props) {
 
             void main() {
                 vec2 uv = vUv;
-                // Flip Y — canvas vs texture coords
                 vec2 texUv = vec2(uv.x, 1.0 - uv.y);
                 vec4 frame = texture2D(uFrame, texUv);
                 float lum = dot(frame.rgb, vec3(0.299, 0.587, 0.114));
 
                 vec3 result = vec3(0.0);
-                float alpha = 0.0;
 
-                // ── Detect local streak direction via gradient (Sobel) ──
+                // ── Sobel gradient → tangent along streak ──
                 float dx = 1.0 / uResolution.x;
                 float dy = 1.0 / uResolution.y;
                 float lumL = dot(texture2D(uFrame, texUv - vec2(dx, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
                 float lumR = dot(texture2D(uFrame, texUv + vec2(dx, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
                 float lumU = dot(texture2D(uFrame, texUv - vec2(0.0, dy)).rgb, vec3(0.299, 0.587, 0.114));
                 float lumD = dot(texture2D(uFrame, texUv + vec2(0.0, dy)).rgb, vec3(0.299, 0.587, 0.114));
-                // Gradient = direction of brightness change
                 vec2 grad = vec2(lumR - lumL, lumD - lumU);
-                // Tangent = perpendicular to gradient = along the streak
                 vec2 tangent = normalize(vec2(-grad.y, grad.x) + 0.001);
 
-                // ── Streak flow effect ──
+                // ── Streak flow ──
                 if (lum > uLuminanceThreshold) {
-                    // Flow noise along the tangent direction
-                    float streakMask = smoothstep(uLuminanceThreshold, uLuminanceThreshold + 0.15, lum);
+                    float streakMask = smoothstep(uLuminanceThreshold, uLuminanceThreshold + 0.1, lum);
                     vec2 flowUv = uv * uStreakScale + tangent * uTime * uStreakSpeed;
                     float flow = fbm(flowUv) * 0.5 + 0.5;
-                    // Pulsing glow
                     float pulse = 0.7 + 0.3 * sin(uTime * 2.0 + lum * 6.28);
-                    result += frame.rgb * streakMask * flow * pulse * uStreakIntensity;
-                    alpha += streakMask * flow * uStreakIntensity * 0.8;
+
+                    // Normalize the source color so dark reds become bright reds
+                    vec3 tint = frame.rgb / max(lum, 0.01);
+                    tint = normalize(tint + 0.1) * 1.2;
+
+                    result += tint * streakMask * flow * pulse * uStreakIntensity;
                 }
 
-                // ── Star twinkle effect ──
-                // Stars = bright but small — check if neighbors are dark
-                if (lum > 0.08 && lum < 0.7) {
+                // ── Star twinkle ──
+                if (lum > 0.03) {
                     float neighborhood = (lumL + lumR + lumU + lumD) * 0.25;
-                    float isIsolated = smoothstep(0.05, 0.0, neighborhood);
-                    if (isIsolated > 0.1) {
-                        // Per-star random twinkle rate from position
-                        vec2 starId = floor(texUv * uResolution / 3.0);
+                    float isIsolated = smoothstep(0.04, 0.0, neighborhood);
+                    if (isIsolated > 0.05) {
+                        vec2 starId = floor(texUv * uResolution / 4.0);
                         float rnd = fract(sin(dot(starId, vec2(12.9898, 78.233))) * 43758.5453);
                         float twinkle = sin(uTime * uTwinkleSpeed * (1.0 + rnd * 3.0) + rnd * 6.28);
                         twinkle = twinkle * 0.5 + 0.5;
-                        float starGlow = isIsolated * twinkle * lum * uTwinkleIntensity;
-                        result += vec3(starGlow * 1.2, starGlow * 1.1, starGlow);
-                        alpha += starGlow * 0.6;
+                        float starGlow = isIsolated * twinkle * uTwinkleIntensity;
+                        // Warm white tint for stars
+                        result += vec3(starGlow, starGlow * 0.95, starGlow * 0.8);
                     }
                 }
 
-                gl_FragColor = vec4(result, alpha);
+                float a = max(result.r, max(result.g, result.b));
+                gl_FragColor = vec4(result, a);
             }
         `
 
