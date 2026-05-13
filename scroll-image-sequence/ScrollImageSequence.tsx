@@ -140,6 +140,7 @@ export default function ScrollImageSequence(props: Props) {
     const [loadProgress, setLoadProgress] = useState(0)
     const [isLoaded, setIsLoaded] = useState(false)
     const [currentFrame, setCurrentFrame] = useState(0)
+    const [overlayStatus, setOverlayStatus] = useState("off")
     const [activeMilestone, setActiveMilestone] = useState<Milestone | null>(
         null
     )
@@ -257,7 +258,10 @@ export default function ScrollImageSequence(props: Props) {
             premultipliedAlpha: false,
             antialias: false,
         })
-        if (!gl) return
+        if (!gl) {
+            setOverlayStatus("ERR: no WebGL context")
+            return
+        }
 
         glRef.current = gl
 
@@ -374,7 +378,7 @@ export default function ScrollImageSequence(props: Props) {
         gl.shaderSource(vs, vsSource)
         gl.compileShader(vs)
         if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
-            console.error("[Overlay] Vertex shader error:", gl.getShaderInfoLog(vs))
+            setOverlayStatus("ERR VS: " + gl.getShaderInfoLog(vs))
             return
         }
 
@@ -382,7 +386,7 @@ export default function ScrollImageSequence(props: Props) {
         gl.shaderSource(fs, fsSource)
         gl.compileShader(fs)
         if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
-            console.error("[Overlay] Fragment shader error:", gl.getShaderInfoLog(fs))
+            setOverlayStatus("ERR FS: " + gl.getShaderInfoLog(fs))
             return
         }
 
@@ -391,12 +395,12 @@ export default function ScrollImageSequence(props: Props) {
         gl.attachShader(program, fs)
         gl.linkProgram(program)
         if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-            console.error("[Overlay] Program link error:", gl.getProgramInfoLog(program))
+            setOverlayStatus("ERR LINK: " + gl.getProgramInfoLog(program))
             return
         }
         gl.useProgram(program)
         glProgramRef.current = program
-        console.log("[Overlay] WebGL initialized successfully")
+        setOverlayStatus("init OK")
 
         // ── Fullscreen quad ──
         const quad = new Float32Array([-1,-1, 1,-1, -1,1, 1,1])
@@ -431,15 +435,13 @@ export default function ScrollImageSequence(props: Props) {
         const gl = glRef.current
         const program = glProgramRef.current
         if (!gl || !program) {
-            console.error("[Overlay] GL context or program missing after init")
+            setOverlayStatus((s) => s.startsWith("ERR") ? s : "ERR: GL missing after init")
             return
         }
 
-        console.log("[Overlay] Render loop starting, canvas:", overlayCanvasRef.current?.clientWidth, "x", overlayCanvasRef.current?.clientHeight)
-
+        setOverlayStatus("running")
         const startTime = performance.now()
         let lastFrame = -1
-        let logOnce = true
 
         function renderLoop() {
             overlayRafRef.current = requestAnimationFrame(renderLoop)
@@ -467,12 +469,8 @@ export default function ScrollImageSequence(props: Props) {
                     gl.bindTexture(gl.TEXTURE_2D, glTextureRef.current)
                     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
                     lastFrame = frame
-                    if (logOnce) {
-                        console.log("[Overlay] First texture uploaded, frame:", frame, "size:", img.naturalWidth, "x", img.naturalHeight)
-                        logOnce = false
-                    }
                 } catch (e) {
-                    console.error("[Overlay] Texture upload failed:", e)
+                    setOverlayStatus("ERR TEX: " + String(e))
                 }
             }
 
@@ -785,7 +783,7 @@ export default function ScrollImageSequence(props: Props) {
                 >
                     <div>Frame: {currentFrame} / {totalFrames - 1}</div>
                     <div>URL: {frameUrls[currentFrame] ?? "—"}</div>
-                    <div>Render: native &lt;img&gt; with object-fit: {objectFit}</div>
+                    <div>Overlay: {enableOverlay ? overlayStatus : "disabled"}</div>
                 </div>
             </div>
         </div>
