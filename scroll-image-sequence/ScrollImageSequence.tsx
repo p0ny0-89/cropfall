@@ -260,7 +260,6 @@ export default function ScrollImageSequence(props: Props) {
 
             drawImageToCanvas(canvas, img, objectFit, objectPositionX, objectPositionY)
 
-            const dpr = window.devicePixelRatio || 1
             setDebugInfo({
                 imgW: img.naturalWidth,
                 imgH: img.naturalHeight,
@@ -268,7 +267,7 @@ export default function ScrollImageSequence(props: Props) {
                 canvasH: canvas.height,
                 cssW: canvas.clientWidth,
                 cssH: canvas.clientHeight,
-                dpr,
+                dpr: Math.max(window.devicePixelRatio || 1, 2),
             })
         },
         [totalFrames, objectFit, objectPositionX, objectPositionY]
@@ -582,17 +581,20 @@ function drawImageToCanvas(
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    const dpr = window.devicePixelRatio || 1
-    // CSS display size (logical pixels)
+    // Framer's preview iframe often reports devicePixelRatio as 1 even on
+    // Retina displays, so floor at 2 to guarantee sharp output.
+    const dpr = Math.max(window.devicePixelRatio || 1, 2)
     const cssW = canvas.clientWidth
     const cssH = canvas.clientHeight
 
     if (cssW === 0 || cssH === 0) return
 
-    // Set bitmap to match CSS size * DPR so 1 CSS pixel = DPR bitmap pixels
-    if (canvas.width !== cssW * dpr || canvas.height !== cssH * dpr) {
-        canvas.width = cssW * dpr
-        canvas.height = cssH * dpr
+    const targetW = Math.round(cssW * dpr)
+    const targetH = Math.round(cssH * dpr)
+
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW
+        canvas.height = targetH
     }
 
     // Scale context so all draw calls use CSS-pixel coordinates
