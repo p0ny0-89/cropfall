@@ -245,57 +245,52 @@ export default function ScrollImageSequence(props: Props) {
                 let rawProgress = -rect.top / scrollable
                 rawProgress = Math.max(0, Math.min(1, rawProgress))
 
-                let effectiveProgress = rawProgress
+                // Raw frame from scroll progress
+                let frameIndex = Math.round(
+                    rawProgress * (totalFrames - 1)
+                )
 
-                // ── Milestone snap (soft magnetic landing) ──────────
+                // ── Milestone snap (dwell zone) ────────────────────
+                // Directly warps the frame index toward the milestone,
+                // creating a sticky zone where more scroll = less frame change.
                 if (enableMilestoneSnap && milestones.length > 0) {
-                    let closestDist = Infinity
-                    let closestRange = snapRange
-                    let closestMilestoneProgress = rawProgress
+                    const rangeInFrames = Math.round(
+                        snapRange * (totalFrames - 1)
+                    )
 
                     for (const ms of milestones) {
-                        const msProgress = ms.frame / (totalFrames - 1)
-                        const dist = Math.abs(rawProgress - msProgress)
-                        const range = ms.range
-                            ? ms.range / (totalFrames - 1)
-                            : snapRange
+                        const msRange = ms.range ?? rangeInFrames
+                        const dist = frameIndex - ms.frame
+                        const absDist = Math.abs(dist)
 
-                        if (dist < range && dist < closestDist) {
-                            closestDist = dist
-                            closestRange = range
-                            closestMilestoneProgress = msProgress
+                        if (absDist < msRange) {
+                            // t: 0 at edge → 1 at milestone center
+                            const t = 1 - absDist / msRange
+                            // Quadratic pull — strong near center, gentle at edge
+                            const pull = t * t * snapStrength * msRange
+                            frameIndex = Math.round(
+                                dist > 0
+                                    ? frameIndex - pull
+                                    : frameIndex + pull
+                            )
+                            break
                         }
-                    }
-
-                    if (closestDist < Infinity) {
-                        // Cubic ease-out: strong pull near center, gentle at edge
-                        const t = closestDist / closestRange
-                        const influence = (1 - t * t) * snapStrength
-                        effectiveProgress = lerp(
-                            rawProgress,
-                            closestMilestoneProgress,
-                            influence
-                        )
                     }
                 }
 
-                // Smooth the frame transitions (lower = snappier)
-                const smoothingFactor = enableMilestoneSnap
-                    ? 1 - snapSmoothing * 0.5
-                    : 0.85
+                // Smooth frame transitions to avoid jitter
                 smoothedProgressRef.current = lerp(
                     smoothedProgressRef.current,
-                    effectiveProgress,
-                    smoothingFactor
+                    frameIndex,
+                    1 - snapSmoothing
                 )
 
-                const progress = smoothedProgressRef.current
-                const frameIndex = Math.round(
-                    progress * (totalFrames - 1)
-                )
                 const clamped = Math.max(
                     0,
-                    Math.min(totalFrames - 1, frameIndex)
+                    Math.min(
+                        totalFrames - 1,
+                        Math.round(smoothedProgressRef.current)
+                    )
                 )
 
                 setCurrentFrame(clamped)
