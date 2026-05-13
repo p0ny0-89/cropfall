@@ -124,6 +124,12 @@ export default function ScrollImageSequence(props: Props) {
     const [activeMilestone, setActiveMilestone] = useState<Milestone | null>(
         null
     )
+    const [debugInfo, setDebugInfo] = useState({
+        imgW: 0, imgH: 0,
+        canvasW: 0, canvasH: 0,
+        cssW: 0, cssH: 0,
+        dpr: 1,
+    })
 
     // Build the list of frame URLs
     const frameUrls = useMemo(() => {
@@ -253,6 +259,17 @@ export default function ScrollImageSequence(props: Props) {
             }
 
             drawImageToCanvas(canvas, img, objectFit, objectPositionX, objectPositionY)
+
+            const dpr = window.devicePixelRatio || 1
+            setDebugInfo({
+                imgW: img.naturalWidth,
+                imgH: img.naturalHeight,
+                canvasW: canvas.width,
+                canvasH: canvas.height,
+                cssW: canvas.clientWidth,
+                cssH: canvas.clientHeight,
+                dpr,
+            })
         },
         [totalFrames, objectFit, objectPositionX, objectPositionY]
     )
@@ -373,14 +390,8 @@ export default function ScrollImageSequence(props: Props) {
         const canvas = canvasRef.current
         if (!canvas) return
 
-        const observer = new ResizeObserver((entries) => {
-            for (const entry of entries) {
-                const { width, height } = entry.contentRect
-                const dpr = window.devicePixelRatio || 1
-                canvas.width = width * dpr
-                canvas.height = height * dpr
-                drawFrame(currentFrame)
-            }
+        const observer = new ResizeObserver(() => {
+            drawFrame(currentFrame)
         })
 
         observer.observe(canvas.parentElement!)
@@ -547,6 +558,10 @@ export default function ScrollImageSequence(props: Props) {
                 >
                     <div>Frame: {currentFrame} / {totalFrames - 1}</div>
                     <div>URL: {frameUrls[currentFrame] ?? "—"}</div>
+                    <div>Image: {debugInfo.imgW}×{debugInfo.imgH}</div>
+                    <div>Canvas: {debugInfo.canvasW}×{debugInfo.canvasH}</div>
+                    <div>CSS: {debugInfo.cssW}×{debugInfo.cssH}</div>
+                    <div>DPR: {debugInfo.dpr}</div>
                 </div>
             </div>
         </div>
@@ -567,47 +582,63 @@ function drawImageToCanvas(
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    const cw = canvas.width
-    const ch = canvas.height
+    const dpr = window.devicePixelRatio || 1
+    // CSS display size (logical pixels)
+    const cssW = canvas.clientWidth
+    const cssH = canvas.clientHeight
+
+    if (cssW === 0 || cssH === 0) return
+
+    // Set bitmap to match CSS size * DPR so 1 CSS pixel = DPR bitmap pixels
+    if (canvas.width !== cssW * dpr || canvas.height !== cssH * dpr) {
+        canvas.width = cssW * dpr
+        canvas.height = cssH * dpr
+    }
+
+    // Scale context so all draw calls use CSS-pixel coordinates
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+
+    // High-quality image smoothing — must be set after any canvas resize
+    // (resizing resets context state)
+    ctx.imageSmoothingEnabled = true
+    ;(ctx as any).imageSmoothingQuality = "high"
+
+    ctx.clearRect(0, 0, cssW, cssH)
+
     const iw = img.naturalWidth
     const ih = img.naturalHeight
+    if (iw === 0 || ih === 0) return
 
-    if (cw === 0 || ch === 0 || iw === 0 || ih === 0) return
-
-    ctx.clearRect(0, 0, cw, ch)
-
-    const canvasRatio = cw / ch
+    // All math below uses CSS pixel dimensions (cssW × cssH)
+    const canvasRatio = cssW / cssH
     const imageRatio = iw / ih
 
     let sw: number, sh: number, sx: number, sy: number
 
     if (fit === "cover") {
         if (imageRatio > canvasRatio) {
-            // Image is wider — crop sides
             sh = ih
             sw = ih * canvasRatio
             sx = (iw - sw) * (posX / 100)
             sy = (ih - sh) * (posY / 100)
         } else {
-            // Image is taller — crop top/bottom
             sw = iw
             sh = iw / canvasRatio
             sx = (iw - sw) * (posX / 100)
             sy = (ih - sh) * (posY / 100)
         }
-        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch)
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cssW, cssH)
     } else {
-        // contain
         let dw: number, dh: number
         if (imageRatio > canvasRatio) {
-            dw = cw
-            dh = cw / imageRatio
+            dw = cssW
+            dh = cssW / imageRatio
         } else {
-            dh = ch
-            dw = ch * imageRatio
+            dh = cssH
+            dw = cssH * imageRatio
         }
-        const dx = (cw - dw) * (posX / 100)
-        const dy = (ch - dh) * (posY / 100)
+        const dx = (cssW - dw) * (posX / 100)
+        const dy = (cssH - dh) * (posY / 100)
         ctx.drawImage(img, 0, 0, iw, ih, dx, dy, dw, dh)
     }
 }
