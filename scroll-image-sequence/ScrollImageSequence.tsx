@@ -291,33 +291,9 @@ export default function ScrollImageSequence(props: Props) {
             // xy = scale, zw = offset — maps screen UV to texture UV
             uniform vec4 uCoverCrop;
 
-            // ── Simplex-style hash noise ──
-            vec2 hash22(vec2 p) {
-                p = vec2(dot(p, vec2(127.1, 311.7)),
-                         dot(p, vec2(269.5, 183.3)));
-                return fract(sin(p) * 43758.5453);
-            }
-
-            float noise(vec2 p) {
-                vec2 i = floor(p);
-                vec2 f = fract(p);
-                vec2 u = f * f * (3.0 - 2.0 * f);
-                float a = dot(hash22(i), f);
-                float b = dot(hash22(i + vec2(1.0, 0.0)), f - vec2(1.0, 0.0));
-                float c = dot(hash22(i + vec2(0.0, 1.0)), f - vec2(0.0, 1.0));
-                float d = dot(hash22(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0));
-                return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
-            }
-
-            float fbm(vec2 p) {
-                float v = 0.0;
-                float a = 0.5;
-                for (int i = 0; i < 4; i++) {
-                    v += a * noise(p);
-                    p *= 2.0;
-                    a *= 0.5;
-                }
-                return v;
+            // Sample luminance with cover-crop UV
+            float sampleLum(vec2 uv) {
+                return dot(texture2D(uFrame, uv).rgb, vec3(0.299, 0.587, 0.114));
             }
 
             void main() {
@@ -329,29 +305,56 @@ export default function ScrollImageSequence(props: Props) {
 
                 vec3 result = vec3(0.0);
 
-                // ── Sobel gradient → tangent along streak ──
+                // ── Soft bloom: sample brightness in a spread ──
+                // This creates the soft glare around streaks
+                float spread = uStreakScale / uResolution.x;
+                float bloom = 0.0;
+                vec3 bloomColor = vec3(0.0);
+                for (int i = -3; i <= 3; i++) {
+                    for (int j = -3; j <= 3; j++) {
+                        vec2 off = vec2(float(i), float(j)) * spread;
+                        vec2 sUv = texUv + off;
+                        vec4 s = texture2D(uFrame, sUv);
+                        float sl = dot(s.rgb, vec3(0.299, 0.587, 0.114));
+                        if (sl > uLuminanceThreshold) {
+                            // Gaussian-ish weight
+                            float w = exp(-float(i*i + j*j) * 0.2);
+                            bloom += sl * w;
+                            bloomColor += s.rgb * w;
+                        }
+                    }
+                }
+                bloom /= 12.0;
+                bloomColor /= 12.0;
+
+                // ── Streak tangent from gradient ──
                 float dx = 1.0 / uResolution.x;
                 float dy = 1.0 / uResolution.y;
-                float lumL = dot(texture2D(uFrame, texUv - vec2(dx, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
-                float lumR = dot(texture2D(uFrame, texUv + vec2(dx, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
-                float lumU = dot(texture2D(uFrame, texUv - vec2(0.0, dy)).rgb, vec3(0.299, 0.587, 0.114));
-                float lumD = dot(texture2D(uFrame, texUv + vec2(0.0, dy)).rgb, vec3(0.299, 0.587, 0.114));
+                float lumL = sampleLum(texUv - vec2(dx * 3.0, 0.0));
+                float lumR = sampleLum(texUv + vec2(dx * 3.0, 0.0));
+                float lumU = sampleLum(texUv - vec2(0.0, dy * 3.0));
+                float lumD = sampleLum(texUv + vec2(0.0, dy * 3.0));
                 vec2 grad = vec2(lumR - lumL, lumD - lumU);
                 vec2 tangent = normalize(vec2(-grad.y, grad.x) + 0.001);
 
-                // ── Streak flow ──
-                if (lum > uLuminanceThreshold) {
-                    float streakMask = smoothstep(uLuminanceThreshold, uLuminanceThreshold + 0.1, lum);
+                // ── Streak flow — smooth traveling waves ──
+                if (bloom > 0.01) {
+                    // Project position onto tangent for directional flow
+                    float along = dot(uv, tangent);
 
-                    // Animated noise flowing along the streak tangent
-                    vec2 flowUv = uv * uStreakScale + tangent * uTime * uStreakSpeed;
-                    float flow = fbm(flowUv) * 0.5 + 0.5;
-                    float pulse = 0.7 + 0.3 * sin(uTime * 2.0 + lum * 6.28);
+                    // Layered sine waves at different speeds for organic motion
+                    float wave1 = sin(along * 20.0 - uTime * uStreakSpeed * 4.0) * 0.5 + 0.5;
+                    float wave2 = sin(along * 35.0 - uTime * uStreakSpeed * 6.0 + 1.5) * 0.5 + 0.5;
+                    float wave3 = sin(along * 12.0 - uTime * uStreakSpeed * 2.5 + 3.0) * 0.5 + 0.5;
+                    float flow = wave1 * 0.5 + wave2 * 0.3 + wave3 * 0.2;
 
-                    // Bright tint derived from source color
-                    vec3 tint = frame.rgb / max(lum, 0.05);
+                    // Soft pulse
+                    float pulse = 0.8 + 0.2 * sin(uTime * 1.5);
 
-                    result += tint * streakMask * flow * pulse * uStreakIntensity;
+                    // Bright tint from bloom color
+                    vec3 tint = bloomColor / max(bloom, 0.05);
+
+                    result += tint * bloom * flow * pulse * uStreakIntensity * 3.0;
                 }
 
                 // ── Star twinkle ──
@@ -1006,11 +1009,11 @@ addPropertyControls(ScrollImageSequence, {
     },
     streakScale: {
         type: ControlType.Number,
-        title: "Streak Scale",
-        defaultValue: 3,
+        title: "Glow Spread",
+        defaultValue: 8,
         min: 1,
-        max: 10,
-        step: 0.5,
+        max: 30,
+        step: 1,
         hidden: (props) => !props.enableOverlay,
     },
     twinkleIntensity: {
