@@ -90,7 +90,7 @@ export default function ScrollImageSequence(props: Props) {
     const {
         sourceMode = "pattern",
         baseUrl = "",
-        filePrefix = "frame_",
+        filePrefix = "",
         fileExtension = "webp",
         startFrame = 1,
         endFrame = 100,
@@ -134,14 +134,18 @@ export default function ScrollImageSequence(props: Props) {
                 .filter(Boolean)
         }
         if (!baseUrl) return []
-        return buildFrameUrls(
+        const urls = buildFrameUrls(
             baseUrl,
             filePrefix,
-            fileExtension,
+            fileExtension.toLowerCase(),
             startFrame,
             endFrame,
             numberPadding
         )
+        if (urls.length > 0) {
+            console.log("[ScrollImageSequence] First URL:", urls[0])
+        }
+        return urls
     }, [
         sourceMode,
         baseUrl,
@@ -521,6 +525,29 @@ export default function ScrollImageSequence(props: Props) {
                         {activeMilestone.label}
                     </div>
                 )}
+
+                {/* DEBUG OVERLAY — remove after testing */}
+                <div
+                    style={{
+                        position: "absolute",
+                        top: 12,
+                        left: 12,
+                        padding: "8px 12px",
+                        borderRadius: 6,
+                        background: "rgba(0,0,0,0.75)",
+                        color: "#0f0",
+                        fontFamily: "monospace",
+                        fontSize: 11,
+                        lineHeight: 1.5,
+                        pointerEvents: "none",
+                        zIndex: 20,
+                        maxWidth: "90%",
+                        wordBreak: "break-all",
+                    }}
+                >
+                    <div>Frame: {currentFrame} / {totalFrames - 1}</div>
+                    <div>URL: {frameUrls[currentFrame] ?? "—"}</div>
+                </div>
             </div>
         </div>
     )
@@ -638,7 +665,7 @@ addPropertyControls(ScrollImageSequence, {
     filePrefix: {
         type: ControlType.String,
         title: "File Prefix",
-        defaultValue: "frame_",
+        defaultValue: "",
         hidden: (props) => props.sourceMode === "manual",
     },
     fileExtension: {
