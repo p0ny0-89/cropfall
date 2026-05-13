@@ -436,6 +436,7 @@ export default function ScrollImageSequence(props: Props) {
                 {frameUrls[currentFrame] && (
                     <img
                         src={frameUrls[currentFrame]}
+                        decoding="sync"
                         alt=""
                         style={{
                             display: "block",
