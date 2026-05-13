@@ -288,6 +288,8 @@ export default function ScrollImageSequence(props: Props) {
             uniform float uTwinkleIntensity;
             uniform float uTwinkleSpeed;
             uniform float uLuminanceThreshold;
+            // xy = scale, zw = offset — maps screen UV to texture UV
+            uniform vec4 uCoverCrop;
 
             // ── Simplex-style hash noise ──
             vec2 hash22(vec2 p) {
@@ -320,7 +322,9 @@ export default function ScrollImageSequence(props: Props) {
 
             void main() {
                 vec2 uv = vUv;
-                vec2 texUv = vec2(uv.x, 1.0 - uv.y);
+                // Map screen UV → texture UV matching object-fit: cover
+                vec2 texUv = uv * uCoverCrop.xy + uCoverCrop.zw;
+                texUv.y = 1.0 - texUv.y; // flip Y for WebGL
                 vec4 frame = texture2D(uFrame, texUv);
                 float lum = dot(frame.rgb, vec3(0.299, 0.587, 0.114));
 
@@ -471,11 +475,33 @@ export default function ScrollImageSequence(props: Props) {
                 }
             }
 
+            // Compute cover-crop UV offset so overlay aligns with <img>
+            const img2 = imagesRef.current[currentFrameRef.current]
+            const iw = img2?.naturalWidth || 1920
+            const ih = img2?.naturalHeight || 1080
+            const cw = canvas.width || 1
+            const ch = canvas.height || 1
+            const imgRatio = iw / ih
+            const canRatio = cw / ch
+            // cover: scale to fill, then crop
+            let uvScaleX = 1.0, uvScaleY = 1.0
+            let uvOffsetX = 0.0, uvOffsetY = 0.0
+            if (imgRatio > canRatio) {
+                // image wider than container — crop sides
+                uvScaleX = canRatio / imgRatio
+                uvOffsetX = (1.0 - uvScaleX) * (objectPositionX / 100)
+            } else {
+                // image taller — crop top/bottom
+                uvScaleY = imgRatio / canRatio
+                uvOffsetY = (1.0 - uvScaleY) * (objectPositionY / 100)
+            }
+
             // Set uniforms
             const t = (performance.now() - startTime) / 1000
             gl.useProgram(program)
             gl.uniform1f(gl.getUniformLocation(program, "uTime"), t)
             gl.uniform2f(gl.getUniformLocation(program, "uResolution"), canvas.width, canvas.height)
+            gl.uniform4f(gl.getUniformLocation(program, "uCoverCrop"), uvScaleX, uvScaleY, uvOffsetX, uvOffsetY)
             gl.uniform1f(gl.getUniformLocation(program, "uStreakIntensity"), streakIntensity)
             gl.uniform1f(gl.getUniformLocation(program, "uStreakSpeed"), streakSpeed)
             gl.uniform1f(gl.getUniformLocation(program, "uStreakScale"), streakScale)
@@ -502,6 +528,8 @@ export default function ScrollImageSequence(props: Props) {
         twinkleIntensity,
         twinkleSpeed,
         luminanceThreshold,
+        objectPositionX,
+        objectPositionY,
     ])
 
     // ── Scroll handler ──────────────────────────────────────────────
