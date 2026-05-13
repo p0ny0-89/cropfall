@@ -3,7 +3,6 @@ import {
     useState,
     useEffect,
     useRef,
-    useCallback,
     useMemo,
 } from "react"
 
@@ -113,7 +112,6 @@ export default function ScrollImageSequence(props: Props) {
     } = props
 
     const containerRef = useRef<HTMLDivElement>(null)
-    const canvasRef = useRef<HTMLCanvasElement>(null)
     const imagesRef = useRef<HTMLImageElement[]>([])
     const rafRef = useRef<number>(0)
     const smoothedProgressRef = useRef<number>(0)
@@ -124,12 +122,6 @@ export default function ScrollImageSequence(props: Props) {
     const [activeMilestone, setActiveMilestone] = useState<Milestone | null>(
         null
     )
-    const [debugInfo, setDebugInfo] = useState({
-        imgW: 0, imgH: 0,
-        canvasW: 0, canvasH: 0,
-        cssW: 0, cssH: 0,
-        dpr: 1,
-    })
 
     // Build the list of frame URLs
     const frameUrls = useMemo(() => {
@@ -233,46 +225,6 @@ export default function ScrollImageSequence(props: Props) {
         }
     }, [frameUrls, totalFrames, enablePreload])
 
-    // ── Draw a frame onto the canvas ────────────────────────────────
-
-    const drawFrame = useCallback(
-        (index: number) => {
-            const canvas = canvasRef.current
-            if (!canvas) return
-
-            const img = imagesRef.current[index]
-            if (!img || !img.complete || img.naturalWidth === 0) {
-                // Frame not loaded yet — try nearest loaded frame
-                for (let offset = 1; offset < totalFrames; offset++) {
-                    const before = imagesRef.current[index - offset]
-                    if (before?.complete && before.naturalWidth > 0) {
-                        drawImageToCanvas(canvas, before, objectFit, objectPositionX, objectPositionY)
-                        return
-                    }
-                    const after = imagesRef.current[index + offset]
-                    if (after?.complete && after.naturalWidth > 0) {
-                        drawImageToCanvas(canvas, after, objectFit, objectPositionX, objectPositionY)
-                        return
-                    }
-                }
-                return
-            }
-
-            drawImageToCanvas(canvas, img, objectFit, objectPositionX, objectPositionY)
-
-            setDebugInfo({
-                imgW: img.naturalWidth,
-                imgH: img.naturalHeight,
-                canvasW: canvas.width,
-                canvasH: canvas.height,
-                cssW: canvas.clientWidth,
-                cssH: canvas.clientHeight,
-                dpr: Math.max(window.devicePixelRatio || 1, 2),
-            })
-        },
-        [totalFrames, objectFit, objectPositionX, objectPositionY]
-    )
-
     // ── Scroll handler ──────────────────────────────────────────────
 
     useEffect(() => {
@@ -345,7 +297,6 @@ export default function ScrollImageSequence(props: Props) {
                 )
 
                 setCurrentFrame(clamped)
-                drawFrame(clamped)
 
                 // ── Active milestone detection ──────────────────────
                 if (milestones.length > 0) {
@@ -380,23 +331,7 @@ export default function ScrollImageSequence(props: Props) {
         snapStrength,
         snapRange,
         snapSmoothing,
-        drawFrame,
     ])
-
-    // ── Resize canvas to match container ────────────────────────────
-
-    useEffect(() => {
-        const canvas = canvasRef.current
-        if (!canvas) return
-
-        const observer = new ResizeObserver(() => {
-            drawFrame(currentFrame)
-        })
-
-        observer.observe(canvas.parentElement!)
-
-        return () => observer.disconnect()
-    }, [drawFrame, currentFrame])
 
     // ── Empty state ─────────────────────────────────────────────────
 
@@ -497,17 +432,22 @@ export default function ScrollImageSequence(props: Props) {
                     </div>
                 )}
 
-                {/* Canvas — the single visible frame */}
-                <canvas
-                    ref={canvasRef}
-                    style={{
-                        display: "block",
-                        width: "100%",
-                        height: "100%",
-                        opacity: isLoaded ? sequenceOpacity : 0,
-                        transition: "opacity 0.3s ease",
-                    }}
-                />
+                {/* Current frame — native <img> for best scaling quality */}
+                {frameUrls[currentFrame] && (
+                    <img
+                        src={frameUrls[currentFrame]}
+                        alt=""
+                        style={{
+                            display: "block",
+                            width: "100%",
+                            height: "100%",
+                            objectFit: objectFit,
+                            objectPosition: `${objectPositionX}% ${objectPositionY}%`,
+                            opacity: isLoaded ? sequenceOpacity : 0,
+                            transition: "opacity 0.3s ease",
+                        }}
+                    />
+                )}
 
                 {/* Milestone overlay */}
                 {showMilestoneOverlay && activeMilestone && (
@@ -557,92 +497,11 @@ export default function ScrollImageSequence(props: Props) {
                 >
                     <div>Frame: {currentFrame} / {totalFrames - 1}</div>
                     <div>URL: {frameUrls[currentFrame] ?? "—"}</div>
-                    <div>Image: {debugInfo.imgW}×{debugInfo.imgH}</div>
-                    <div>Canvas: {debugInfo.canvasW}×{debugInfo.canvasH}</div>
-                    <div>CSS: {debugInfo.cssW}×{debugInfo.cssH}</div>
-                    <div>DPR: {debugInfo.dpr}</div>
+                    <div>Render: native &lt;img&gt; with object-fit: {objectFit}</div>
                 </div>
             </div>
         </div>
     )
-}
-
-// ─── Canvas draw helper ──────────────────────────────────────────────
-// Implements cover / contain logic manually since canvas has no
-// built-in object-fit.
-
-function drawImageToCanvas(
-    canvas: HTMLCanvasElement,
-    img: HTMLImageElement,
-    fit: "cover" | "contain",
-    posX: number,
-    posY: number
-) {
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    // Framer's preview iframe often reports devicePixelRatio as 1 even on
-    // Retina displays, so floor at 2 to guarantee sharp output.
-    const dpr = Math.max(window.devicePixelRatio || 1, 2)
-    const cssW = canvas.clientWidth
-    const cssH = canvas.clientHeight
-
-    if (cssW === 0 || cssH === 0) return
-
-    const targetW = Math.round(cssW * dpr)
-    const targetH = Math.round(cssH * dpr)
-
-    if (canvas.width !== targetW || canvas.height !== targetH) {
-        canvas.width = targetW
-        canvas.height = targetH
-    }
-
-    // Scale context so all draw calls use CSS-pixel coordinates
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-
-    // High-quality image smoothing — must be set after any canvas resize
-    // (resizing resets context state)
-    ctx.imageSmoothingEnabled = true
-    ;(ctx as any).imageSmoothingQuality = "high"
-
-    ctx.clearRect(0, 0, cssW, cssH)
-
-    const iw = img.naturalWidth
-    const ih = img.naturalHeight
-    if (iw === 0 || ih === 0) return
-
-    // All math below uses CSS pixel dimensions (cssW × cssH)
-    const canvasRatio = cssW / cssH
-    const imageRatio = iw / ih
-
-    let sw: number, sh: number, sx: number, sy: number
-
-    if (fit === "cover") {
-        if (imageRatio > canvasRatio) {
-            sh = ih
-            sw = ih * canvasRatio
-            sx = (iw - sw) * (posX / 100)
-            sy = (ih - sh) * (posY / 100)
-        } else {
-            sw = iw
-            sh = iw / canvasRatio
-            sx = (iw - sw) * (posX / 100)
-            sy = (ih - sh) * (posY / 100)
-        }
-        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cssW, cssH)
-    } else {
-        let dw: number, dh: number
-        if (imageRatio > canvasRatio) {
-            dw = cssW
-            dh = cssW / imageRatio
-        } else {
-            dh = cssH
-            dw = cssH * imageRatio
-        }
-        const dx = (cssW - dw) * (posX / 100)
-        const dy = (cssH - dh) * (posY / 100)
-        ctx.drawImage(img, 0, 0, iw, ih, dx, dy, dw, dh)
-    }
 }
 
 // ─── Load-order builder ──────────────────────────────────────────────
