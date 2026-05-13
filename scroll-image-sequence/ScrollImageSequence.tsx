@@ -672,7 +672,7 @@ addPropertyControls(ScrollImageSequence, {
         type: ControlType.Enum,
         title: "Extension",
         options: ["webp", "png", "jpg"],
-        optionTitles: ["WebP", "PNG", "JPG"],
+        optionTitles: ["webp", "png", "jpg"],
         defaultValue: "webp",
         hidden: (props) => props.sourceMode === "manual",
     },
