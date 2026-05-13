@@ -361,8 +361,8 @@ export default function ScrollImageSequence(props: Props) {
                     result += tint * glowMask * flow * pulse * uStreakIntensity * 3.0;
                 }
 
-                // ── Star twinkle ──
-                if (lum > 0.03) {
+                // ── Star twinkle (only on dim isolated points, not streaks) ──
+                if (lum > 0.03 && lum < uLuminanceThreshold) {
                     float neighborhood = (lumL + lumR + lumU + lumD) * 0.25;
                     float isIsolated = smoothstep(0.04, 0.0, neighborhood);
                     if (isIsolated > 0.05) {
