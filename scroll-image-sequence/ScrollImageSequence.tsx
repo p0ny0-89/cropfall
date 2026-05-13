@@ -305,27 +305,29 @@ export default function ScrollImageSequence(props: Props) {
 
                 vec3 result = vec3(0.0);
 
-                // ── Soft bloom: sample brightness in a spread ──
-                // This creates the soft glare around streaks
+                // ── Soft bloom: Gaussian blur of bright areas ──
                 float spread = uStreakScale / uResolution.x;
                 float bloom = 0.0;
                 vec3 bloomColor = vec3(0.0);
-                for (int i = -3; i <= 3; i++) {
-                    for (int j = -3; j <= 3; j++) {
-                        vec2 off = vec2(float(i), float(j)) * spread;
-                        vec2 sUv = texUv + off;
+                float totalW = 0.0;
+
+                // 9×9 Gaussian with smooth weights — no threshold gating
+                for (int i = -4; i <= 4; i++) {
+                    for (int j = -4; j <= 4; j++) {
+                        float w = exp(-float(i*i + j*j) * 0.12);
+                        vec2 sUv = texUv + vec2(float(i), float(j)) * spread;
                         vec4 s = texture2D(uFrame, sUv);
                         float sl = dot(s.rgb, vec3(0.299, 0.587, 0.114));
-                        if (sl > uLuminanceThreshold) {
-                            // Gaussian-ish weight
-                            float w = exp(-float(i*i + j*j) * 0.2);
-                            bloom += sl * w;
-                            bloomColor += s.rgb * w;
-                        }
+                        bloom += sl * w;
+                        bloomColor += s.rgb * w;
+                        totalW += w;
                     }
                 }
-                bloom /= 12.0;
-                bloomColor /= 12.0;
+                bloom /= totalW;
+                bloomColor /= totalW;
+
+                // Apply threshold after blur for smooth edges
+                float glowMask = smoothstep(uLuminanceThreshold * 0.5, uLuminanceThreshold + 0.05, bloom);
 
                 // ── Streak tangent from gradient ──
                 float dx = 1.0 / uResolution.x;
@@ -338,23 +340,25 @@ export default function ScrollImageSequence(props: Props) {
                 vec2 tangent = normalize(vec2(-grad.y, grad.x) + 0.001);
 
                 // ── Streak flow — smooth traveling waves ──
-                if (bloom > 0.01) {
-                    // Project position onto tangent for directional flow
+                if (glowMask > 0.0) {
                     float along = dot(uv, tangent);
 
-                    // Layered sine waves at different speeds for organic motion
-                    float wave1 = sin(along * 20.0 - uTime * uStreakSpeed * 4.0) * 0.5 + 0.5;
-                    float wave2 = sin(along * 35.0 - uTime * uStreakSpeed * 6.0 + 1.5) * 0.5 + 0.5;
-                    float wave3 = sin(along * 12.0 - uTime * uStreakSpeed * 2.5 + 3.0) * 0.5 + 0.5;
-                    float flow = wave1 * 0.5 + wave2 * 0.3 + wave3 * 0.2;
+                    // Gentle sine waves — smoothed with pow for rounder peaks
+                    float w1 = sin(along * 18.0 - uTime * uStreakSpeed * 4.0);
+                    float w2 = sin(along * 30.0 - uTime * uStreakSpeed * 6.5 + 1.5);
+                    float w3 = sin(along * 10.0 - uTime * uStreakSpeed * 2.5 + 3.0);
+                    // Smooth 0→1 with soft peaks
+                    w1 = pow(w1 * 0.5 + 0.5, 2.0);
+                    w2 = pow(w2 * 0.5 + 0.5, 2.0);
+                    w3 = pow(w3 * 0.5 + 0.5, 2.0);
+                    float flow = w1 * 0.45 + w2 * 0.3 + w3 * 0.25;
 
-                    // Soft pulse
-                    float pulse = 0.8 + 0.2 * sin(uTime * 1.5);
+                    float pulse = 0.85 + 0.15 * sin(uTime * 1.5);
 
-                    // Bright tint from bloom color
-                    vec3 tint = bloomColor / max(bloom, 0.05);
+                    // Bright tint from averaged bloom color
+                    vec3 tint = bloomColor / max(bloom, 0.02);
 
-                    result += tint * bloom * flow * pulse * uStreakIntensity * 3.0;
+                    result += tint * glowMask * flow * pulse * uStreakIntensity * 3.0;
                 }
 
                 // ── Star twinkle ──
