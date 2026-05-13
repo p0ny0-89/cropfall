@@ -9,12 +9,6 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────
 
-interface Milestone {
-    label: string
-    frame: number
-    range?: number
-}
-
 interface Props {
     sourceMode: "pattern" | "manual"
     baseUrl: string
@@ -32,12 +26,7 @@ interface Props {
     backgroundColor: string
     sequenceOpacity: number
     enablePreload: boolean
-    showMilestoneOverlay: boolean
-    milestonesJson: string
-    enableMilestoneSnap: boolean
-    snapStrength: number
-    snapRange: number
-    snapSmoothing: number
+    showFrameCounter: boolean
     enableOverlay: boolean
     streakIntensity: number
     streakSpeed: number
@@ -69,23 +58,6 @@ function buildFrameUrls(
     return urls
 }
 
-function parseMilestones(json: string): Milestone[] {
-    if (!json || !json.trim()) return []
-    try {
-        const parsed = JSON.parse(json)
-        if (!Array.isArray(parsed)) return []
-        return parsed.filter(
-            (m) => typeof m.label === "string" && typeof m.frame === "number"
-        )
-    } catch {
-        return []
-    }
-}
-
-function lerp(a: number, b: number, t: number): number {
-    return a + (b - a) * t
-}
-
 // ─── Component ───────────────────────────────────────────────────────
 
 /**
@@ -111,12 +83,7 @@ export default function ScrollImageSequence(props: Props) {
         backgroundColor = "#000000",
         sequenceOpacity = 1,
         enablePreload = true,
-        showMilestoneOverlay = false,
-        milestonesJson = "[]",
-        enableMilestoneSnap = false,
-        snapStrength = 0.5,
-        snapRange = 0.05,
-        snapSmoothing = 0.15,
+        showFrameCounter = false,
         enableOverlay = false,
         streakIntensity = 0.4,
         streakSpeed = 0.8,
@@ -134,16 +101,11 @@ export default function ScrollImageSequence(props: Props) {
     const overlayRafRef = useRef<number>(0)
     const imagesRef = useRef<HTMLImageElement[]>([])
     const rafRef = useRef<number>(0)
-    const smoothedProgressRef = useRef<number>(0)
     const currentFrameRef = useRef<number>(0)
 
     const [loadProgress, setLoadProgress] = useState(0)
     const [isLoaded, setIsLoaded] = useState(false)
     const [currentFrame, setCurrentFrame] = useState(0)
-    const [overlayStatus, setOverlayStatus] = useState("off")
-    const [activeMilestone, setActiveMilestone] = useState<Milestone | null>(
-        null
-    )
 
     // Build the list of frame URLs
     const frameUrls = useMemo(() => {
@@ -154,7 +116,7 @@ export default function ScrollImageSequence(props: Props) {
                 .filter(Boolean)
         }
         if (!baseUrl) return []
-        const urls = buildFrameUrls(
+        return buildFrameUrls(
             baseUrl,
             filePrefix,
             fileExtension.toLowerCase(),
@@ -162,10 +124,6 @@ export default function ScrollImageSequence(props: Props) {
             endFrame,
             numberPadding
         )
-        if (urls.length > 0) {
-            console.log("[ScrollImageSequence] First URL:", urls[0])
-        }
-        return urls
     }, [
         sourceMode,
         baseUrl,
@@ -178,10 +136,6 @@ export default function ScrollImageSequence(props: Props) {
     ])
 
     const totalFrames = frameUrls.length
-    const milestones = useMemo(
-        () => parseMilestones(milestonesJson),
-        [milestonesJson]
-    )
 
     // ── Preload images ──────────────────────────────────────────────
 
@@ -258,10 +212,7 @@ export default function ScrollImageSequence(props: Props) {
             premultipliedAlpha: false,
             antialias: false,
         })
-        if (!gl) {
-            setOverlayStatus("ERR: no WebGL context")
-            return
-        }
+        if (!gl) return
 
         glRef.current = gl
 
@@ -301,10 +252,6 @@ export default function ScrollImageSequence(props: Props) {
                 vec3 result = vec3(0.0);
 
                 // ── Two-pass bloom: inner detail + outer glow ──
-                // Pass 1: tight spiral (1/3 radius) — captures streak core
-                // Pass 2: wide spiral (full radius) — soft outer halo
-                // Combining two radii produces a smooth falloff without
-                // needing hundreds of samples in a single pass.
                 float maxRadius = uStreakScale / uResolution.x;
                 float goldenAngle = 2.39996323;
 
@@ -339,7 +286,7 @@ export default function ScrollImageSequence(props: Props) {
 
                     // Outer ring — full radius, gentle falloff
                     float rO = maxRadius * sqrt(fi / 32.0);
-                    float tO = fi * goldenAngle + 0.5; // offset rotation
+                    float tO = fi * goldenAngle + 0.5;
                     vec2 sO = texUv + vec2(cos(tO), sin(tO)) * rO;
                     vec3 cO = texture2D(uFrame, sO).rgb;
                     float lO = dot(cO, vec3(0.299, 0.587, 0.114));
@@ -363,10 +310,7 @@ export default function ScrollImageSequence(props: Props) {
                 glowMask = sqrt(glowMask);
 
                 // ── Streak tangent from outer bloom gradient ──
-                // Reuse outer spiral at offset positions for a pre-smoothed gradient
-                // This is effectively computing the gradient of the blurred image
                 float gStep = 12.0 / uResolution.x;
-                // Sample bloom at 4 cardinal offsets using a small spiral each
                 float bL = 0.0; float bR = 0.0; float bU = 0.0; float bD = 0.0;
                 float gw = 0.0;
                 for (int i = 0; i <= 8; i++) {
@@ -388,11 +332,9 @@ export default function ScrollImageSequence(props: Props) {
                 if (glowMask > 0.01) {
                     float along = dot(uv, tangent);
 
-                    // Lower frequencies = smoother, less banding
                     float w1 = sin(along * 12.0 - uTime * uStreakSpeed * 3.5);
                     float w2 = sin(along * 20.0 - uTime * uStreakSpeed * 5.5 + 1.5);
                     float w3 = sin(along * 7.0  - uTime * uStreakSpeed * 2.0 + 3.0);
-                    // Cubic smoothing instead of quadratic — rounder peaks
                     w1 = pow(w1 * 0.5 + 0.5, 3.0);
                     w2 = pow(w2 * 0.5 + 0.5, 3.0);
                     w3 = pow(w3 * 0.5 + 0.5, 3.0);
@@ -401,7 +343,6 @@ export default function ScrollImageSequence(props: Props) {
                     float pulse = 0.85 + 0.15 * sin(uTime * 1.5);
                     vec3 tint = bloomColor / max(bloom, 0.02);
 
-                    // glowMask² for extra-soft fade at edges
                     result += tint * (glowMask * glowMask) * flow * pulse * uStreakIntensity * 3.0;
                 }
 
@@ -432,30 +373,21 @@ export default function ScrollImageSequence(props: Props) {
         const vs = gl.createShader(gl.VERTEX_SHADER)!
         gl.shaderSource(vs, vsSource)
         gl.compileShader(vs)
-        if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
-            setOverlayStatus("ERR VS: " + gl.getShaderInfoLog(vs))
-            return
-        }
+        if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) return
 
         const fs = gl.createShader(gl.FRAGMENT_SHADER)!
         gl.shaderSource(fs, fsSource)
         gl.compileShader(fs)
-        if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
-            setOverlayStatus("ERR FS: " + gl.getShaderInfoLog(fs))
-            return
-        }
+        if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) return
 
         const program = gl.createProgram()!
         gl.attachShader(program, vs)
         gl.attachShader(program, fs)
         gl.linkProgram(program)
-        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-            setOverlayStatus("ERR LINK: " + gl.getProgramInfoLog(program))
-            return
-        }
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return
+
         gl.useProgram(program)
         glProgramRef.current = program
-        setOverlayStatus("init OK")
 
         // ── Fullscreen quad ──
         const quad = new Float32Array([-1,-1, 1,-1, -1,1, 1,1])
@@ -489,12 +421,8 @@ export default function ScrollImageSequence(props: Props) {
 
         const gl = glRef.current
         const program = glProgramRef.current
-        if (!gl || !program) {
-            setOverlayStatus((s) => s.startsWith("ERR") ? s : "ERR: GL missing after init")
-            return
-        }
+        if (!gl || !program) return
 
-        setOverlayStatus("running")
         const startTime = performance.now()
         let lastFrame = -1
 
@@ -525,7 +453,7 @@ export default function ScrollImageSequence(props: Props) {
                     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
                     lastFrame = frame
                 } catch (e) {
-                    setOverlayStatus("ERR TEX: " + String(e))
+                    // silently skip texture upload errors
                 }
             }
 
@@ -537,19 +465,14 @@ export default function ScrollImageSequence(props: Props) {
             const ch = canvas.height || 1
             const imgRatio = iw / ih
             const canRatio = cw / ch
-            // cover: scale to fill, then crop
             let uvScaleX = 1.0, uvScaleY = 1.0
             let uvOffsetX = 0.0, uvOffsetY = 0.0
             if (imgRatio > canRatio) {
-                // image wider than container — crop sides
                 uvScaleX = canRatio / imgRatio
                 uvOffsetX = (1.0 - uvScaleX) * (objectPositionX / 100)
             } else {
-                // image taller — crop top/bottom
                 uvScaleY = imgRatio / canRatio
                 // Invert Y because the shader flips texUv.y (1.0 - y)
-                // for WebGL texture orientation. Without this, Y=100%
-                // (CSS bottom) maps to the top of the texture.
                 uvOffsetY = (1.0 - uvScaleY) * (1.0 - objectPositionY / 100)
             }
 
@@ -600,48 +523,15 @@ export default function ScrollImageSequence(props: Props) {
                 if (!el) return
 
                 const rect = el.getBoundingClientRect()
-                // How far we've scrolled into the container.
-                // progress 0 = top of container is at top of viewport
-                // progress 1 = bottom of container minus viewport is at top
                 const scrollable = rect.height - window.innerHeight
                 if (scrollable <= 0) return
 
                 let rawProgress = -rect.top / scrollable
                 rawProgress = Math.max(0, Math.min(1, rawProgress))
 
-                // Raw frame from scroll progress
-                let frameIndex = Math.round(
+                const frameIndex = Math.round(
                     rawProgress * (totalFrames - 1)
                 )
-
-                // ── Milestone snap (dwell zone) ────────────────────
-                // Directly warps the frame index toward the milestone,
-                // creating a sticky zone where more scroll = less frame change.
-                if (enableMilestoneSnap && milestones.length > 0) {
-                    const rangeInFrames = Math.round(
-                        snapRange * (totalFrames - 1)
-                    )
-
-                    for (const ms of milestones) {
-                        const msRange = ms.range ?? rangeInFrames
-                        const dist = frameIndex - ms.frame
-                        const absDist = Math.abs(dist)
-
-                        if (absDist < msRange) {
-                            // t: 0 at edge → 1 at milestone center
-                            const t = 1 - absDist / msRange
-                            // Quadratic pull — strong near center, gentle at edge
-                            const pull = t * t * snapStrength * msRange
-                            frameIndex = Math.round(
-                                dist > 0
-                                    ? frameIndex - pull
-                                    : frameIndex + pull
-                            )
-                            break
-                        }
-                    }
-                }
-
                 const clamped = Math.max(
                     0,
                     Math.min(totalFrames - 1, frameIndex)
@@ -649,23 +539,6 @@ export default function ScrollImageSequence(props: Props) {
 
                 currentFrameRef.current = clamped
                 setCurrentFrame(clamped)
-
-                // ── Active milestone detection ──────────────────────
-                if (milestones.length > 0) {
-                    let active: Milestone | null = null
-                    let bestDist = Infinity
-
-                    for (const ms of milestones) {
-                        const proximity = ms.range ?? 10
-                        const dist = Math.abs(clamped - ms.frame)
-                        if (dist <= proximity && dist < bestDist) {
-                            bestDist = dist
-                            active = ms
-                        }
-                    }
-
-                    setActiveMilestone(active)
-                }
             })
         }
 
@@ -676,14 +549,7 @@ export default function ScrollImageSequence(props: Props) {
             window.removeEventListener("scroll", onScroll)
             if (rafRef.current) cancelAnimationFrame(rafRef.current)
         }
-    }, [
-        totalFrames,
-        milestones,
-        enableMilestoneSnap,
-        snapStrength,
-        snapRange,
-        snapSmoothing,
-    ])
+    }, [totalFrames])
 
     // ── Empty state ─────────────────────────────────────────────────
 
@@ -817,77 +683,43 @@ export default function ScrollImageSequence(props: Props) {
                     />
                 )}
 
-                {/* Milestone overlay */}
-                {showMilestoneOverlay && activeMilestone && (
+                {/* Frame counter */}
+                {showFrameCounter && (
                     <div
                         style={{
                             position: "absolute",
-                            bottom: 48,
-                            left: "50%",
-                            transform: "translateX(-50%)",
-                            padding: "10px 24px",
-                            borderRadius: 8,
+                            top: 12,
+                            left: 12,
+                            padding: "4px 10px",
+                            borderRadius: 4,
                             background: "rgba(0,0,0,0.6)",
-                            backdropFilter: "blur(12px)",
-                            WebkitBackdropFilter: "blur(12px)",
                             color: "#fff",
-                            fontFamily: "system-ui, sans-serif",
-                            fontSize: 14,
-                            fontWeight: 500,
-                            letterSpacing: "0.02em",
-                            whiteSpace: "nowrap",
+                            fontFamily: "monospace",
+                            fontSize: 11,
                             pointerEvents: "none",
-                            zIndex: 5,
+                            zIndex: 20,
                         }}
                     >
-                        {activeMilestone.label}
+                        {currentFrame} / {totalFrames - 1}
                     </div>
                 )}
-
-                {/* DEBUG OVERLAY — remove after testing */}
-                <div
-                    style={{
-                        position: "absolute",
-                        top: 12,
-                        left: 12,
-                        padding: "8px 12px",
-                        borderRadius: 6,
-                        background: "rgba(0,0,0,0.75)",
-                        color: "#0f0",
-                        fontFamily: "monospace",
-                        fontSize: 11,
-                        lineHeight: 1.5,
-                        pointerEvents: "none",
-                        zIndex: 20,
-                        maxWidth: "90%",
-                        wordBreak: "break-all",
-                    }}
-                >
-                    <div>Frame: {currentFrame} / {totalFrames - 1}</div>
-                    <div>URL: {frameUrls[currentFrame] ?? "—"}</div>
-                    <div>Overlay: {enableOverlay ? overlayStatus : "disabled"}</div>
-                </div>
             </div>
         </div>
     )
 }
 
 // ─── Load-order builder ──────────────────────────────────────────────
-// Loads frame 0 first, then expands outward so the nearest frames
-// to the current scroll position are available soonest.
 
 function buildLoadOrder(total: number): number[] {
     if (total <= 0) return []
     const order: number[] = [0]
     const visited = new Set([0])
 
-    // Also prioritise the last frame
     if (total > 1) {
         order.push(total - 1)
         visited.add(total - 1)
     }
 
-    // Middle-out from frame 0
     for (let offset = 1; offset < total; offset++) {
         const forward = offset
         const backward = total - 1 - offset
@@ -1038,6 +870,13 @@ addPropertyControls(ScrollImageSequence, {
         defaultValue: true,
     },
 
+    // ── Debug ───────────────────────────────────────────────────────
+    showFrameCounter: {
+        type: ControlType.Boolean,
+        title: "Frame Counter",
+        defaultValue: false,
+    },
+
     // ── Dynamic overlay ───────────────────────────────────────────
     enableOverlay: {
         type: ControlType.Boolean,
@@ -1097,53 +936,5 @@ addPropertyControls(ScrollImageSequence, {
         max: 0.5,
         step: 0.01,
         hidden: (props) => !props.enableOverlay,
-    },
-
-    // ── Milestones ──────────────────────────────────────────────────
-    showMilestoneOverlay: {
-        type: ControlType.Boolean,
-        title: "Milestone Overlay",
-        defaultValue: false,
-    },
-    milestonesJson: {
-        type: ControlType.String,
-        title: "Milestones (JSON)",
-        placeholder:
-            '[{"label":"Ignition","frame":30,"range":10}]',
-        displayTextArea: true,
-    },
-
-    // ── Milestone snap ──────────────────────────────────────────────
-    enableMilestoneSnap: {
-        type: ControlType.Boolean,
-        title: "Milestone Snap",
-        defaultValue: false,
-    },
-    snapStrength: {
-        type: ControlType.Number,
-        title: "Snap Strength",
-        defaultValue: 0.5,
-        min: 0,
-        max: 1,
-        step: 0.05,
-        hidden: (props) => !props.enableMilestoneSnap,
-    },
-    snapRange: {
-        type: ControlType.Number,
-        title: "Snap Range",
-        defaultValue: 0.05,
-        min: 0.01,
-        max: 0.2,
-        step: 0.01,
-        hidden: (props) => !props.enableMilestoneSnap,
-    },
-    snapSmoothing: {
-        type: ControlType.Number,
-        title: "Snap Smoothing",
-        defaultValue: 0.15,
-        min: 0,
-        max: 0.5,
-        step: 0.01,
-        hidden: (props) => !props.enableMilestoneSnap,
     },
 })
