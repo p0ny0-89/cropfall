@@ -278,19 +278,9 @@ export default function ScrollImageSequence(props: Props) {
                     }
                 }
 
-                // Smooth frame transitions to avoid jitter
-                smoothedProgressRef.current = lerp(
-                    smoothedProgressRef.current,
-                    frameIndex,
-                    1 - snapSmoothing
-                )
-
                 const clamped = Math.max(
                     0,
-                    Math.min(
-                        totalFrames - 1,
-                        Math.round(smoothedProgressRef.current)
-                    )
+                    Math.min(totalFrames - 1, frameIndex)
                 )
 
                 setCurrentFrame(clamped)
