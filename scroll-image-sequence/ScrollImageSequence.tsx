@@ -291,9 +291,14 @@ export default function ScrollImageSequence(props: Props) {
             // xy = scale, zw = offset — maps screen UV to texture UV
             uniform vec4 uCoverCrop;
 
-            // Sample luminance with cover-crop UV
-            float sampleLum(vec2 uv) {
-                return dot(texture2D(uFrame, uv).rgb, vec3(0.299, 0.587, 0.114));
+            // Blurred luminance at an offset — 5-tap cross average to denoise
+            float sampleBlurLum(vec2 uv, float px) {
+                float c = dot(texture2D(uFrame, uv).rgb, vec3(0.299, 0.587, 0.114));
+                float l = dot(texture2D(uFrame, uv - vec2(px, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
+                float r = dot(texture2D(uFrame, uv + vec2(px, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
+                float u = dot(texture2D(uFrame, uv - vec2(0.0, px)).rgb, vec3(0.299, 0.587, 0.114));
+                float d = dot(texture2D(uFrame, uv + vec2(0.0, px)).rgb, vec3(0.299, 0.587, 0.114));
+                return (c * 2.0 + l + r + u + d) / 6.0;
             }
 
             void main() {
@@ -305,33 +310,27 @@ export default function ScrollImageSequence(props: Props) {
 
                 vec3 result = vec3(0.0);
 
-                // ── Soft bloom: golden-angle spiral sampling ──
-                // Spiral pattern eliminates grid artifacts from square sampling
+                // ── Soft bloom: golden-angle spiral, 48 samples ──
                 float maxRadius = uStreakScale / uResolution.x;
                 float bloom = 0.0;
                 vec3 bloomColor = vec3(0.0);
                 float totalW = 0.0;
-
-                // Golden angle in radians ≈ 2.39996
                 float goldenAngle = 2.39996323;
 
-                // Center sample
-                float cw = 1.0;
-                bloom += lum * cw;
-                bloomColor += frame.rgb * cw;
-                totalW += cw;
+                // Center sample (heavier weight)
+                bloom += lum * 2.0;
+                bloomColor += frame.rgb * 2.0;
+                totalW += 2.0;
 
-                // 36 spiral samples — no grid alignment possible
-                for (int i = 1; i <= 36; i++) {
+                for (int i = 1; i <= 48; i++) {
                     float fi = float(i);
-                    float r = maxRadius * sqrt(fi / 36.0);
+                    float r = maxRadius * sqrt(fi / 48.0);
                     float theta = fi * goldenAngle;
-                    vec2 offset = vec2(cos(theta), sin(theta)) * r;
-                    vec2 sUv = texUv + offset;
+                    vec2 sUv = texUv + vec2(cos(theta), sin(theta)) * r;
                     vec4 s = texture2D(uFrame, sUv);
                     float sl = dot(s.rgb, vec3(0.299, 0.587, 0.114));
-                    // Gaussian falloff from center
-                    float w = exp(-fi / 12.0);
+                    // Gentle Gaussian falloff — wider tail for smoother result
+                    float w = exp(-fi / 18.0);
                     bloom += sl * w;
                     bloomColor += s.rgb * w;
                     totalW += w;
@@ -340,25 +339,26 @@ export default function ScrollImageSequence(props: Props) {
                 bloom /= totalW;
                 bloomColor /= totalW;
 
-                // Apply threshold after blur for smooth edges
-                float glowMask = smoothstep(uLuminanceThreshold * 0.5, uLuminanceThreshold + 0.05, bloom);
+                // Wide smoothstep to avoid stippled threshold edges
+                float glowMask = smoothstep(uLuminanceThreshold * 0.3, uLuminanceThreshold + 0.15, bloom);
+                // Extra feather: square root for softer falloff at edges
+                glowMask = sqrt(glowMask);
 
-                // ── Streak tangent from gradient (wider kernel for smoother direction) ──
-                float dx = 1.0 / uResolution.x;
-                float dy = 1.0 / uResolution.y;
-                // Sobel-like: average over 5px radius for stable gradient
-                float lumL = (sampleLum(texUv - vec2(dx*3.0, 0.0)) + sampleLum(texUv - vec2(dx*5.0, 0.0))) * 0.5;
-                float lumR = (sampleLum(texUv + vec2(dx*3.0, 0.0)) + sampleLum(texUv + vec2(dx*5.0, 0.0))) * 0.5;
-                float lumU = (sampleLum(texUv - vec2(0.0, dy*3.0)) + sampleLum(texUv - vec2(0.0, dy*5.0))) * 0.5;
-                float lumD = (sampleLum(texUv + vec2(0.0, dy*3.0)) + sampleLum(texUv + vec2(0.0, dy*5.0))) * 0.5;
-                vec2 grad = vec2(lumR - lumL, lumD - lumU);
+                // ── Streak tangent from BLURRED gradient (not raw pixels) ──
+                // Using wide-kernel blurred luminance prevents per-pixel noise
+                // from creating jittery tangent directions
+                float gStep = 8.0 / uResolution.x;  // 8px kernel
+                float blurL = sampleBlurLum(texUv - vec2(gStep, 0.0), gStep * 0.5);
+                float blurR = sampleBlurLum(texUv + vec2(gStep, 0.0), gStep * 0.5);
+                float blurU = sampleBlurLum(texUv - vec2(0.0, gStep), gStep * 0.5);
+                float blurD = sampleBlurLum(texUv + vec2(0.0, gStep), gStep * 0.5);
+                vec2 grad = vec2(blurR - blurL, blurD - blurU);
                 vec2 tangent = normalize(vec2(-grad.y, grad.x) + 0.001);
 
                 // ── Streak flow — smooth traveling waves ──
-                if (glowMask > 0.0) {
+                if (glowMask > 0.01) {
                     float along = dot(uv, tangent);
 
-                    // Gentle sine waves — smoothed with pow for rounder peaks
                     float w1 = sin(along * 18.0 - uTime * uStreakSpeed * 4.0);
                     float w2 = sin(along * 30.0 - uTime * uStreakSpeed * 6.5 + 1.5);
                     float w3 = sin(along * 10.0 - uTime * uStreakSpeed * 2.5 + 3.0);
@@ -368,19 +368,21 @@ export default function ScrollImageSequence(props: Props) {
                     float flow = w1 * 0.45 + w2 * 0.3 + w3 * 0.25;
 
                     float pulse = 0.85 + 0.15 * sin(uTime * 1.5);
-
-                    // Bright tint from averaged bloom color
                     vec3 tint = bloomColor / max(bloom, 0.02);
 
                     result += tint * glowMask * flow * pulse * uStreakIntensity * 3.0;
                 }
 
-                // ── Star twinkle (only on dim isolated points, not streaks) ──
-                if (lum > 0.03 && lum < uLuminanceThreshold) {
-                    float neighborhood = (lumL + lumR + lumU + lumD) * 0.25;
+                // ── Star twinkle (only on truly dim isolated points) ──
+                if (lum > 0.03 && lum < uLuminanceThreshold * 0.6) {
+                    float px = 2.0 / uResolution.x;
+                    float nL = dot(texture2D(uFrame, texUv - vec2(px, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
+                    float nR = dot(texture2D(uFrame, texUv + vec2(px, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
+                    float nU = dot(texture2D(uFrame, texUv - vec2(0.0, px)).rgb, vec3(0.299, 0.587, 0.114));
+                    float nD = dot(texture2D(uFrame, texUv + vec2(0.0, px)).rgb, vec3(0.299, 0.587, 0.114));
+                    float neighborhood = (nL + nR + nU + nD) * 0.25;
                     float isIsolated = smoothstep(0.04, 0.0, neighborhood);
                     if (isIsolated > 0.05) {
-                        // Use continuous UV hash instead of floor grid to avoid pixelation
                         float rnd = fract(sin(dot(texUv * 317.0, vec2(12.9898, 78.233))) * 43758.5453);
                         float twinkle = sin(uTime * uTwinkleSpeed * (1.0 + rnd * 3.0) + rnd * 6.28);
                         twinkle = twinkle * 0.5 + 0.5;
