@@ -250,6 +250,7 @@ export default function ScrollImageSequence(props: Props) {
                 // ── Milestone snap (soft magnetic landing) ──────────
                 if (enableMilestoneSnap && milestones.length > 0) {
                     let closestDist = Infinity
+                    let closestRange = snapRange
                     let closestMilestoneProgress = rawProgress
 
                     for (const ms of milestones) {
@@ -261,17 +262,15 @@ export default function ScrollImageSequence(props: Props) {
 
                         if (dist < range && dist < closestDist) {
                             closestDist = dist
+                            closestRange = range
                             closestMilestoneProgress = msProgress
                         }
                     }
 
                     if (closestDist < Infinity) {
-                        // Influence falls off linearly within the range
-                        const normalizedDist =
-                            closestDist /
-                            (snapRange || 0.05)
-                        const influence =
-                            Math.max(0, 1 - normalizedDist) * snapStrength
+                        // Cubic ease-out: strong pull near center, gentle at edge
+                        const t = closestDist / closestRange
+                        const influence = (1 - t * t) * snapStrength
                         effectiveProgress = lerp(
                             rawProgress,
                             closestMilestoneProgress,
@@ -280,11 +279,14 @@ export default function ScrollImageSequence(props: Props) {
                     }
                 }
 
-                // Smooth the progress to avoid frame jitter
+                // Smooth the frame transitions (lower = snappier)
+                const smoothingFactor = enableMilestoneSnap
+                    ? 1 - snapSmoothing * 0.5
+                    : 0.85
                 smoothedProgressRef.current = lerp(
                     smoothedProgressRef.current,
                     effectiveProgress,
-                    enableMilestoneSnap ? 1 - snapSmoothing : 0.85
+                    smoothingFactor
                 )
 
                 const progress = smoothedProgressRef.current
