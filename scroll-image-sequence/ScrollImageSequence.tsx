@@ -291,16 +291,6 @@ export default function ScrollImageSequence(props: Props) {
             // xy = scale, zw = offset — maps screen UV to texture UV
             uniform vec4 uCoverCrop;
 
-            // Blurred luminance at an offset — 5-tap cross average to denoise
-            float sampleBlurLum(vec2 uv, float px) {
-                float c = dot(texture2D(uFrame, uv).rgb, vec3(0.299, 0.587, 0.114));
-                float l = dot(texture2D(uFrame, uv - vec2(px, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
-                float r = dot(texture2D(uFrame, uv + vec2(px, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
-                float u = dot(texture2D(uFrame, uv - vec2(0.0, px)).rgb, vec3(0.299, 0.587, 0.114));
-                float d = dot(texture2D(uFrame, uv + vec2(0.0, px)).rgb, vec3(0.299, 0.587, 0.114));
-                return (c * 2.0 + l + r + u + d) / 6.0;
-            }
-
             void main() {
                 vec2 uv = vUv;
                 vec2 texUv = uv * uCoverCrop.xy + uCoverCrop.zw;
@@ -310,79 +300,121 @@ export default function ScrollImageSequence(props: Props) {
 
                 vec3 result = vec3(0.0);
 
-                // ── Soft bloom: golden-angle spiral, 48 samples ──
+                // ── Two-pass bloom: inner detail + outer glow ──
+                // Pass 1: tight spiral (1/3 radius) — captures streak core
+                // Pass 2: wide spiral (full radius) — soft outer halo
+                // Combining two radii produces a smooth falloff without
+                // needing hundreds of samples in a single pass.
                 float maxRadius = uStreakScale / uResolution.x;
-                float bloom = 0.0;
-                vec3 bloomColor = vec3(0.0);
-                float totalW = 0.0;
                 float goldenAngle = 2.39996323;
 
-                // Center sample (heavier weight)
-                bloom += lum * 2.0;
-                bloomColor += frame.rgb * 2.0;
-                totalW += 2.0;
+                float bloomInner = 0.0;
+                vec3 colorInner = vec3(0.0);
+                float wInner = 0.0;
+                float bloomOuter = 0.0;
+                vec3 colorOuter = vec3(0.0);
+                float wOuter = 0.0;
 
-                for (int i = 1; i <= 48; i++) {
+                // Center
+                bloomInner += lum * 3.0;
+                colorInner += frame.rgb * 3.0;
+                wInner += 3.0;
+                bloomOuter += lum * 1.5;
+                colorOuter += frame.rgb * 1.5;
+                wOuter += 1.5;
+
+                for (int i = 1; i <= 32; i++) {
                     float fi = float(i);
-                    float r = maxRadius * sqrt(fi / 48.0);
-                    float theta = fi * goldenAngle;
-                    vec2 sUv = texUv + vec2(cos(theta), sin(theta)) * r;
-                    vec4 s = texture2D(uFrame, sUv);
-                    float sl = dot(s.rgb, vec3(0.299, 0.587, 0.114));
-                    // Gentle Gaussian falloff — wider tail for smoother result
-                    float w = exp(-fi / 18.0);
-                    bloom += sl * w;
-                    bloomColor += s.rgb * w;
-                    totalW += w;
+
+                    // Inner ring — tight radius, steep falloff
+                    float rI = maxRadius * 0.35 * sqrt(fi / 32.0);
+                    float tI = fi * goldenAngle;
+                    vec2 sI = texUv + vec2(cos(tI), sin(tI)) * rI;
+                    vec3 cI = texture2D(uFrame, sI).rgb;
+                    float lI = dot(cI, vec3(0.299, 0.587, 0.114));
+                    float wI = exp(-fi / 12.0);
+                    bloomInner += lI * wI;
+                    colorInner += cI * wI;
+                    wInner += wI;
+
+                    // Outer ring — full radius, gentle falloff
+                    float rO = maxRadius * sqrt(fi / 32.0);
+                    float tO = fi * goldenAngle + 0.5; // offset rotation
+                    vec2 sO = texUv + vec2(cos(tO), sin(tO)) * rO;
+                    vec3 cO = texture2D(uFrame, sO).rgb;
+                    float lO = dot(cO, vec3(0.299, 0.587, 0.114));
+                    float wO = exp(-fi / 20.0);
+                    bloomOuter += lO * wO;
+                    colorOuter += cO * wO;
+                    wOuter += wO;
                 }
 
-                bloom /= totalW;
-                bloomColor /= totalW;
+                bloomInner /= wInner;
+                colorInner /= wInner;
+                bloomOuter /= wOuter;
+                colorOuter /= wOuter;
 
-                // Wide smoothstep to avoid stippled threshold edges
-                float glowMask = smoothstep(uLuminanceThreshold * 0.3, uLuminanceThreshold + 0.15, bloom);
-                // Extra feather: square root for softer falloff at edges
+                // Blend inner + outer for smooth combined bloom
+                float bloom = bloomInner * 0.4 + bloomOuter * 0.6;
+                vec3 bloomColor = colorInner * 0.4 + colorOuter * 0.6;
+
+                // Very wide smooth transition
+                float glowMask = smoothstep(uLuminanceThreshold * 0.2, uLuminanceThreshold + 0.25, bloom);
                 glowMask = sqrt(glowMask);
 
-                // ── Streak tangent from BLURRED gradient (not raw pixels) ──
-                // Using wide-kernel blurred luminance prevents per-pixel noise
-                // from creating jittery tangent directions
-                float gStep = 8.0 / uResolution.x;  // 8px kernel
-                float blurL = sampleBlurLum(texUv - vec2(gStep, 0.0), gStep * 0.5);
-                float blurR = sampleBlurLum(texUv + vec2(gStep, 0.0), gStep * 0.5);
-                float blurU = sampleBlurLum(texUv - vec2(0.0, gStep), gStep * 0.5);
-                float blurD = sampleBlurLum(texUv + vec2(0.0, gStep), gStep * 0.5);
-                vec2 grad = vec2(blurR - blurL, blurD - blurU);
+                // ── Streak tangent from outer bloom gradient ──
+                // Reuse outer spiral at offset positions for a pre-smoothed gradient
+                // This is effectively computing the gradient of the blurred image
+                float gStep = 12.0 / uResolution.x;
+                // Sample bloom at 4 cardinal offsets using a small spiral each
+                float bL = 0.0; float bR = 0.0; float bU = 0.0; float bD = 0.0;
+                float gw = 0.0;
+                for (int i = 0; i <= 8; i++) {
+                    float fi = float(i);
+                    float r = gStep * 0.6 * sqrt(fi / 8.0 + 0.1);
+                    float t = fi * goldenAngle;
+                    vec2 d = vec2(cos(t), sin(t)) * r;
+                    float w = exp(-fi / 5.0);
+                    bL += dot(texture2D(uFrame, texUv - vec2(gStep, 0.0) + d).rgb, vec3(0.299, 0.587, 0.114)) * w;
+                    bR += dot(texture2D(uFrame, texUv + vec2(gStep, 0.0) + d).rgb, vec3(0.299, 0.587, 0.114)) * w;
+                    bU += dot(texture2D(uFrame, texUv - vec2(0.0, gStep) + d).rgb, vec3(0.299, 0.587, 0.114)) * w;
+                    bD += dot(texture2D(uFrame, texUv + vec2(0.0, gStep) + d).rgb, vec3(0.299, 0.587, 0.114)) * w;
+                    gw += w;
+                }
+                vec2 grad = vec2(bR - bL, bD - bU) / gw;
                 vec2 tangent = normalize(vec2(-grad.y, grad.x) + 0.001);
 
                 // ── Streak flow — smooth traveling waves ──
                 if (glowMask > 0.01) {
                     float along = dot(uv, tangent);
 
-                    float w1 = sin(along * 18.0 - uTime * uStreakSpeed * 4.0);
-                    float w2 = sin(along * 30.0 - uTime * uStreakSpeed * 6.5 + 1.5);
-                    float w3 = sin(along * 10.0 - uTime * uStreakSpeed * 2.5 + 3.0);
-                    w1 = pow(w1 * 0.5 + 0.5, 2.0);
-                    w2 = pow(w2 * 0.5 + 0.5, 2.0);
-                    w3 = pow(w3 * 0.5 + 0.5, 2.0);
-                    float flow = w1 * 0.45 + w2 * 0.3 + w3 * 0.25;
+                    // Lower frequencies = smoother, less banding
+                    float w1 = sin(along * 12.0 - uTime * uStreakSpeed * 3.5);
+                    float w2 = sin(along * 20.0 - uTime * uStreakSpeed * 5.5 + 1.5);
+                    float w3 = sin(along * 7.0  - uTime * uStreakSpeed * 2.0 + 3.0);
+                    // Cubic smoothing instead of quadratic — rounder peaks
+                    w1 = pow(w1 * 0.5 + 0.5, 3.0);
+                    w2 = pow(w2 * 0.5 + 0.5, 3.0);
+                    w3 = pow(w3 * 0.5 + 0.5, 3.0);
+                    float flow = w1 * 0.5 + w2 * 0.25 + w3 * 0.25;
 
                     float pulse = 0.85 + 0.15 * sin(uTime * 1.5);
                     vec3 tint = bloomColor / max(bloom, 0.02);
 
-                    result += tint * glowMask * flow * pulse * uStreakIntensity * 3.0;
+                    // glowMask² for extra-soft fade at edges
+                    result += tint * (glowMask * glowMask) * flow * pulse * uStreakIntensity * 3.0;
                 }
 
                 // ── Star twinkle (only on truly dim isolated points) ──
-                if (lum > 0.03 && lum < uLuminanceThreshold * 0.6) {
-                    float px = 2.0 / uResolution.x;
+                if (lum > 0.03 && lum < uLuminanceThreshold * 0.5) {
+                    float px = 3.0 / uResolution.x;
                     float nL = dot(texture2D(uFrame, texUv - vec2(px, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
                     float nR = dot(texture2D(uFrame, texUv + vec2(px, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
                     float nU = dot(texture2D(uFrame, texUv - vec2(0.0, px)).rgb, vec3(0.299, 0.587, 0.114));
                     float nD = dot(texture2D(uFrame, texUv + vec2(0.0, px)).rgb, vec3(0.299, 0.587, 0.114));
                     float neighborhood = (nL + nR + nU + nD) * 0.25;
                     float isIsolated = smoothstep(0.04, 0.0, neighborhood);
-                    if (isIsolated > 0.05) {
+                    if (isIsolated > 0.1) {
                         float rnd = fract(sin(dot(texUv * 317.0, vec2(12.9898, 78.233))) * 43758.5453);
                         float twinkle = sin(uTime * uTwinkleSpeed * (1.0 + rnd * 3.0) + rnd * 6.28);
                         twinkle = twinkle * 0.5 + 0.5;
