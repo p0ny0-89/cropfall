@@ -373,17 +373,30 @@ export default function ScrollImageSequence(props: Props) {
         const vs = gl.createShader(gl.VERTEX_SHADER)!
         gl.shaderSource(vs, vsSource)
         gl.compileShader(vs)
+        if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
+            console.error("[Overlay] Vertex shader error:", gl.getShaderInfoLog(vs))
+            return
+        }
 
         const fs = gl.createShader(gl.FRAGMENT_SHADER)!
         gl.shaderSource(fs, fsSource)
         gl.compileShader(fs)
+        if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
+            console.error("[Overlay] Fragment shader error:", gl.getShaderInfoLog(fs))
+            return
+        }
 
         const program = gl.createProgram()!
         gl.attachShader(program, vs)
         gl.attachShader(program, fs)
         gl.linkProgram(program)
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            console.error("[Overlay] Program link error:", gl.getProgramInfoLog(program))
+            return
+        }
         gl.useProgram(program)
         glProgramRef.current = program
+        console.log("[Overlay] WebGL initialized successfully")
 
         // ── Fullscreen quad ──
         const quad = new Float32Array([-1,-1, 1,-1, -1,1, 1,1])
@@ -417,10 +430,16 @@ export default function ScrollImageSequence(props: Props) {
 
         const gl = glRef.current
         const program = glProgramRef.current
-        if (!gl || !program) return
+        if (!gl || !program) {
+            console.error("[Overlay] GL context or program missing after init")
+            return
+        }
+
+        console.log("[Overlay] Render loop starting, canvas:", overlayCanvasRef.current?.clientWidth, "x", overlayCanvasRef.current?.clientHeight)
 
         const startTime = performance.now()
         let lastFrame = -1
+        let logOnce = true
 
         function renderLoop() {
             overlayRafRef.current = requestAnimationFrame(renderLoop)
@@ -444,9 +463,17 @@ export default function ScrollImageSequence(props: Props) {
             const frame = currentFrameRef.current
             const img = imagesRef.current[frame]
             if (img?.complete && img.naturalWidth > 0 && frame !== lastFrame) {
-                gl.bindTexture(gl.TEXTURE_2D, glTextureRef.current)
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
-                lastFrame = frame
+                try {
+                    gl.bindTexture(gl.TEXTURE_2D, glTextureRef.current)
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
+                    lastFrame = frame
+                    if (logOnce) {
+                        console.log("[Overlay] First texture uploaded, frame:", frame, "size:", img.naturalWidth, "x", img.naturalHeight)
+                        logOnce = false
+                    }
+                } catch (e) {
+                    console.error("[Overlay] Texture upload failed:", e)
+                }
             }
 
             // Set uniforms
