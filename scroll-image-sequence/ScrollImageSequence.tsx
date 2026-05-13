@@ -324,53 +324,16 @@ export default function ScrollImageSequence(props: Props) {
                 vec2 uv = vUv;
                 // Map screen UV → texture UV matching object-fit: cover
                 vec2 texUv = uv * uCoverCrop.xy + uCoverCrop.zw;
-                texUv.y = 1.0 - texUv.y; // flip Y for WebGL
+                texUv.y = 1.0 - texUv.y;
                 vec4 frame = texture2D(uFrame, texUv);
                 float lum = dot(frame.rgb, vec3(0.299, 0.587, 0.114));
 
-                vec3 result = vec3(0.0);
-
-                // ── Sobel gradient → tangent along streak ──
-                float dx = 1.0 / uResolution.x;
-                float dy = 1.0 / uResolution.y;
-                float lumL = dot(texture2D(uFrame, texUv - vec2(dx, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
-                float lumR = dot(texture2D(uFrame, texUv + vec2(dx, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
-                float lumU = dot(texture2D(uFrame, texUv - vec2(0.0, dy)).rgb, vec3(0.299, 0.587, 0.114));
-                float lumD = dot(texture2D(uFrame, texUv + vec2(0.0, dy)).rgb, vec3(0.299, 0.587, 0.114));
-                vec2 grad = vec2(lumR - lumL, lumD - lumU);
-                vec2 tangent = normalize(vec2(-grad.y, grad.x) + 0.001);
-
-                // ── Streak flow ──
-                if (lum > uLuminanceThreshold) {
-                    float streakMask = smoothstep(uLuminanceThreshold, uLuminanceThreshold + 0.1, lum);
-                    vec2 flowUv = uv * uStreakScale + tangent * uTime * uStreakSpeed;
-                    float flow = fbm(flowUv) * 0.5 + 0.5;
-                    float pulse = 0.7 + 0.3 * sin(uTime * 2.0 + lum * 6.28);
-
-                    // Normalize the source color so dark reds become bright reds
-                    vec3 tint = frame.rgb / max(lum, 0.01);
-                    tint = normalize(tint + 0.1) * 1.2;
-
-                    result += tint * streakMask * flow * pulse * uStreakIntensity;
-                }
-
-                // ── Star twinkle ──
-                if (lum > 0.03) {
-                    float neighborhood = (lumL + lumR + lumU + lumD) * 0.25;
-                    float isIsolated = smoothstep(0.04, 0.0, neighborhood);
-                    if (isIsolated > 0.05) {
-                        vec2 starId = floor(texUv * uResolution / 4.0);
-                        float rnd = fract(sin(dot(starId, vec2(12.9898, 78.233))) * 43758.5453);
-                        float twinkle = sin(uTime * uTwinkleSpeed * (1.0 + rnd * 3.0) + rnd * 6.28);
-                        twinkle = twinkle * 0.5 + 0.5;
-                        float starGlow = isIsolated * twinkle * uTwinkleIntensity;
-                        // Warm white tint for stars
-                        result += vec3(starGlow, starGlow * 0.95, starGlow * 0.8);
-                    }
-                }
-
-                float a = max(result.r, max(result.g, result.b));
-                gl_FragColor = vec4(result, a);
+                // ── DIAGNOSTIC: show luminance as bright green ──
+                // This replaces all effects temporarily.
+                // You should see a green silhouette of the streaks.
+                // If you see nothing, the texture is not loading.
+                // If green is misaligned, the cover-crop UV is wrong.
+                gl_FragColor = vec4(0.0, lum * 3.0, 0.0, lum * 2.0);
             }
         `
 
