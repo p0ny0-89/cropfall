@@ -91,9 +91,7 @@ export default function TeslaMilestoneCounter({
     const containerRef = useRef<HTMLDivElement>(null)
     const isInView = useInView(containerRef)
     const [hasAppeared, setHasAppeared] = useState(false)
-    useEffect(() => {
-        if (isInView && !hasAppeared) setHasAppeared(true)
-    }, [isInView, hasAppeared])
+    useEffect(() => { setHasAppeared(true) }, [])
     const rafRef = useRef<number>(0)
     const startTimeRef = useRef<number>(0)
     const mainCountRef = useRef(initialCount)
