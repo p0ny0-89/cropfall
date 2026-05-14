@@ -25,7 +25,6 @@ export function LiveCounter(): Override {
     }, [])
 
     return {
-        children: display,
         text: display,
     }
 }
