@@ -91,6 +91,8 @@ export default function EventCountdown({
     accentColor = "#c0392b",
     dimColor = "rgba(255,255,255,0.4)",
     separatorColor = "rgba(255,255,255,0.2)",
+    paddingX = 0,
+    paddingY = 0,
     debugMode = false,
 }: Record<string, any>) {
     const FALLBACK_FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
@@ -150,7 +152,7 @@ export default function EventCountdown({
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                padding: "40px 24px",
+                padding: `${paddingY}px ${paddingX}px`,
                 boxSizing: "border-box",
                 fontFamily: labelFontFamily,
             }}
@@ -416,6 +418,24 @@ addPropertyControls(EventCountdown, {
         type: ControlType.Color,
         title: "Separator Color",
         defaultValue: "rgba(255,255,255,0.2)",
+    },
+    paddingX: {
+        type: ControlType.Number,
+        title: "Padding X",
+        defaultValue: 0,
+        min: 0,
+        max: 200,
+        step: 1,
+        unit: "px",
+    },
+    paddingY: {
+        type: ControlType.Number,
+        title: "Padding Y",
+        defaultValue: 0,
+        min: 0,
+        max: 200,
+        step: 1,
+        unit: "px",
     },
     debugMode: {
         type: ControlType.Boolean,
