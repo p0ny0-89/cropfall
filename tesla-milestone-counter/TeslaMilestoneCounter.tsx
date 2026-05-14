@@ -91,7 +91,9 @@ export default function TeslaMilestoneCounter({
     const containerRef = useRef<HTMLDivElement>(null)
     const isInView = useInView(containerRef)
     const [hasAppeared, setHasAppeared] = useState(false)
-    useEffect(() => { setHasAppeared(true) }, [])
+    useEffect(() => {
+        if (isInView && !hasAppeared) setHasAppeared(true)
+    }, [isInView, hasAppeared])
     const rafRef = useRef<number>(0)
     const startTimeRef = useRef<number>(0)
     const mainCountRef = useRef(initialCount)
@@ -123,7 +125,7 @@ export default function TeslaMilestoneCounter({
         startTimeRef.current = 0
     }, [initialCount, milestoneCount, models])
 
-    const shouldAnimate = startCountingOnView ? isInView : true
+    const shouldAnimate = true
 
     const animate = useCallback(
         (timestamp: number) => {
