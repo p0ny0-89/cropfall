@@ -1,5 +1,6 @@
 import { addPropertyControls, ControlType } from "framer"
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { setCount as publishCount } from "./milestoneStore.ts"
 
 interface ModelData {
     name: string
@@ -147,6 +148,7 @@ export default function TeslaMilestoneCounter({
                 (mainCountRef.current - smoothedRef.current) * smoothing
 
             setDisplayCount(smoothedRef.current)
+            publishCount(smoothedRef.current)
             setModelDisplayCounts(newModels.map(Math.floor))
             setMilestoneReached(mainCountRef.current >= milestoneCount)
             setElapsed((e) => e + dt)
