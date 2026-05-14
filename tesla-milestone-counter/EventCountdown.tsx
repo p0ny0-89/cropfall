@@ -99,6 +99,7 @@ export default function EventCountdown({
     const counterFontFamily = counterFont?.fontFamily || FALLBACK_FONT
     const counterFontWeight = counterFont?.fontWeight || 400
     const labelFontFamily = labelFont?.fontFamily || FALLBACK_FONT
+    const labelFontWeight = labelFont?.fontWeight || 400
 
     const containerRef = useRef<HTMLDivElement>(null)
     const isInView = useInView(containerRef)
@@ -164,7 +165,7 @@ export default function EventCountdown({
                 <div
                     style={{
                         fontSize: 11,
-                        fontWeight: 600,
+                        fontWeight: labelFontWeight,
                         letterSpacing: "0.2em",
                         textTransform: "uppercase",
                         color: dimColor,
@@ -180,7 +181,7 @@ export default function EventCountdown({
                 <div
                     style={{
                         fontSize: 13,
-                        fontWeight: 400,
+                        fontWeight: labelFontWeight,
                         letterSpacing: "0.06em",
                         color: dimColor,
                         marginBottom: 24,
@@ -195,7 +196,7 @@ export default function EventCountdown({
                 <div
                     style={{
                         fontSize: "clamp(18px, 3vw, 28px)",
-                        fontWeight: 500,
+                        fontWeight: counterFontWeight,
                         fontFamily: counterFontFamily,
                         letterSpacing: "0.15em",
                         color: accentColor,
@@ -246,7 +247,7 @@ export default function EventCountdown({
                                     <span
                                         style={{
                                             fontSize: labelFontSize,
-                                            fontWeight: 600,
+                                            fontWeight: labelFontWeight,
                                             letterSpacing: "0.18em",
                                             color: dimColor,
                                             marginTop: counterFontSize * 0.12,
