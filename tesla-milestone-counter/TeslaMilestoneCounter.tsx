@@ -77,12 +77,16 @@ export default function TeslaMilestoneCounter({
     backgroundColor = "#0a0a0a",
     textColor = "#e8e8e8",
     accentColor = "#c0392b",
-    counterFontFamily = "Inter, -apple-system, sans-serif",
-    bodyFontFamily = "Inter, -apple-system, sans-serif",
+    counterFont,
+    bodyFont,
     cardBackgroundColor = "rgba(255,255,255,0.04)",
     borderColor = "rgba(255,255,255,0.08)",
     debugMode = false,
 }: Record<string, any>) {
+    const FALLBACK_FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    const counterFontFamily = counterFont?.fontFamily || FALLBACK_FONT
+    const bodyFontFamily = bodyFont?.fontFamily || FALLBACK_FONT
+
     const containerRef = useRef<HTMLDivElement>(null)
     const isInView = useInView(containerRef)
     const [hasAppeared, setHasAppeared] = useState(false)
@@ -873,15 +877,17 @@ addPropertyControls(TeslaMilestoneCounter, {
         defaultValue: true,
         hidden: (props: any) => !props.showModelBreakdown,
     },
-    counterFontFamily: {
-        type: ControlType.String,
+    counterFont: {
+        //@ts-ignore — ControlType.Font is undocumented but functional in Framer
+        type: ControlType.Font,
         title: "Counter Font",
-        defaultValue: "Inter, -apple-system, sans-serif",
+        controls: "basic",
     },
-    bodyFontFamily: {
-        type: ControlType.String,
+    bodyFont: {
+        //@ts-ignore — ControlType.Font is undocumented but functional in Framer
+        type: ControlType.Font,
         title: "Body Font",
-        defaultValue: "Inter, -apple-system, sans-serif",
+        controls: "basic",
     },
     backgroundColor: {
         type: ControlType.Color,
