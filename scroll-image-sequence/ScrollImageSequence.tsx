@@ -9,6 +9,17 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────
 
+type Anchor =
+    | "top-left"
+    | "top-right"
+    | "bottom-left"
+    | "bottom-right"
+    | "top-center"
+    | "bottom-center"
+    | "left-center"
+    | "right-center"
+    | "custom"
+
 interface Props {
     sourceMode: "pattern" | "manual"
     baseUrl: string
@@ -27,6 +38,20 @@ interface Props {
     sequenceOpacity: number
     enablePreload: boolean
     showFrameCounter: boolean
+    counterAnchor: Anchor
+    useUniformPadding: boolean
+    counterPadding: number
+    counterPaddingTop: number
+    counterPaddingRight: number
+    counterPaddingBottom: number
+    counterPaddingLeft: number
+    counterOffsetX: number
+    counterOffsetY: number
+    // @ts-ignore — ControlType.Font is undocumented
+    counterFont: any
+    counterFontSize: number
+    counterFontWeight: number
+    counterColor: string
     enableOverlay: boolean
     streakIntensity: number
     streakSpeed: number
@@ -58,6 +83,65 @@ function buildFrameUrls(
     return urls
 }
 
+// ─── Anchor positioning ─────────────────────────────────────────────
+
+function getAnchorStyle(
+    anchor: Anchor,
+    pad: { top: number; right: number; bottom: number; left: number },
+    offsetX: number,
+    offsetY: number
+): React.CSSProperties {
+    const base: React.CSSProperties = {
+        position: "absolute",
+        pointerEvents: "none",
+        zIndex: 20,
+    }
+
+    // Vertical
+    switch (anchor) {
+        case "top-left":
+        case "top-center":
+        case "top-right":
+            base.top = pad.top + offsetY
+            break
+        case "bottom-left":
+        case "bottom-center":
+        case "bottom-right":
+            base.bottom = pad.bottom - offsetY
+            break
+        case "left-center":
+        case "right-center":
+        case "custom":
+            base.top = `calc(50% + ${offsetY}px)`
+            base.transform = "translateY(-50%)"
+            break
+    }
+
+    // Horizontal
+    switch (anchor) {
+        case "top-left":
+        case "bottom-left":
+        case "left-center":
+            base.left = pad.left + offsetX
+            break
+        case "top-right":
+        case "bottom-right":
+        case "right-center":
+            base.right = pad.right - offsetX
+            break
+        case "top-center":
+        case "bottom-center":
+            base.left = `calc(50% + ${offsetX}px)`
+            base.transform = (base.transform || "") + " translateX(-50%)"
+            break
+        case "custom":
+            base.left = pad.left + offsetX
+            break
+    }
+
+    return base
+}
+
 // ─── Component ───────────────────────────────────────────────────────
 
 /**
@@ -84,6 +168,19 @@ export default function ScrollImageSequence(props: Props) {
         sequenceOpacity = 1,
         enablePreload = true,
         showFrameCounter = false,
+        counterAnchor = "top-left" as Anchor,
+        useUniformPadding = true,
+        counterPadding = 12,
+        counterPaddingTop = 12,
+        counterPaddingRight = 12,
+        counterPaddingBottom = 12,
+        counterPaddingLeft = 12,
+        counterOffsetX = 0,
+        counterOffsetY = 0,
+        counterFont,
+        counterFontSize = 11,
+        counterFontWeight = 400,
+        counterColor = "#ffffff",
         enableOverlay = false,
         streakIntensity = 0.4,
         streakSpeed = 0.8,
@@ -687,17 +784,18 @@ export default function ScrollImageSequence(props: Props) {
                 {showFrameCounter && (
                     <div
                         style={{
-                            position: "absolute",
-                            top: 12,
-                            left: 12,
-                            padding: "4px 10px",
-                            borderRadius: 4,
-                            background: "rgba(0,0,0,0.6)",
-                            color: "#fff",
-                            fontFamily: "monospace",
-                            fontSize: 11,
-                            pointerEvents: "none",
-                            zIndex: 20,
+                            ...getAnchorStyle(
+                                counterAnchor,
+                                useUniformPadding
+                                    ? { top: counterPadding, right: counterPadding, bottom: counterPadding, left: counterPadding }
+                                    : { top: counterPaddingTop, right: counterPaddingRight, bottom: counterPaddingBottom, left: counterPaddingLeft },
+                                counterOffsetX,
+                                counterOffsetY
+                            ),
+                            fontFamily: counterFont?.fontFamily || "monospace",
+                            fontSize: counterFontSize,
+                            fontWeight: counterFontWeight,
+                            color: counterColor,
                         }}
                     >
                         {currentFrame} / {totalFrames - 1}
@@ -870,11 +968,156 @@ addPropertyControls(ScrollImageSequence, {
         defaultValue: true,
     },
 
-    // ── Debug ───────────────────────────────────────────────────────
+    // ── Frame counter ─────────────────────────────────────────────
     showFrameCounter: {
         type: ControlType.Boolean,
         title: "Frame Counter",
         defaultValue: false,
+    },
+    counterAnchor: {
+        type: ControlType.Enum,
+        title: "Anchor",
+        options: [
+            "top-left",
+            "top-center",
+            "top-right",
+            "left-center",
+            "right-center",
+            "bottom-left",
+            "bottom-center",
+            "bottom-right",
+            "custom",
+        ],
+        optionTitles: [
+            "Top Left",
+            "Top Center",
+            "Top Right",
+            "Left Center",
+            "Right Center",
+            "Bottom Left",
+            "Bottom Center",
+            "Bottom Right",
+            "Custom",
+        ],
+        defaultValue: "top-left",
+        hidden: (props) => !props.showFrameCounter,
+    },
+    useUniformPadding: {
+        type: ControlType.Boolean,
+        title: "Uniform Padding",
+        defaultValue: true,
+        hidden: (props) => !props.showFrameCounter,
+    },
+    counterPadding: {
+        type: ControlType.Number,
+        title: "Padding",
+        defaultValue: 12,
+        min: 0,
+        max: 200,
+        step: 1,
+        unit: "px",
+        hidden: (props) => !props.showFrameCounter || !props.useUniformPadding,
+    },
+    counterPaddingTop: {
+        type: ControlType.Number,
+        title: "Pad Top",
+        defaultValue: 12,
+        min: 0,
+        max: 200,
+        step: 1,
+        unit: "px",
+        hidden: (props) => !props.showFrameCounter || props.useUniformPadding,
+    },
+    counterPaddingRight: {
+        type: ControlType.Number,
+        title: "Pad Right",
+        defaultValue: 12,
+        min: 0,
+        max: 200,
+        step: 1,
+        unit: "px",
+        hidden: (props) => !props.showFrameCounter || props.useUniformPadding,
+    },
+    counterPaddingBottom: {
+        type: ControlType.Number,
+        title: "Pad Bottom",
+        defaultValue: 12,
+        min: 0,
+        max: 200,
+        step: 1,
+        unit: "px",
+        hidden: (props) => !props.showFrameCounter || props.useUniformPadding,
+    },
+    counterPaddingLeft: {
+        type: ControlType.Number,
+        title: "Pad Left",
+        defaultValue: 12,
+        min: 0,
+        max: 200,
+        step: 1,
+        unit: "px",
+        hidden: (props) => !props.showFrameCounter || props.useUniformPadding,
+    },
+    counterOffsetX: {
+        type: ControlType.Number,
+        title: "Offset X",
+        defaultValue: 0,
+        min: -500,
+        max: 500,
+        step: 1,
+        unit: "px",
+        hidden: (props) => !props.showFrameCounter,
+    },
+    counterOffsetY: {
+        type: ControlType.Number,
+        title: "Offset Y",
+        defaultValue: 0,
+        min: -500,
+        max: 500,
+        step: 1,
+        unit: "px",
+        hidden: (props) => !props.showFrameCounter,
+    },
+    // @ts-ignore — ControlType.Font is undocumented in Framer
+    counterFont: {
+        // @ts-ignore
+        type: ControlType.Font,
+        title: "Font",
+        hidden: (props: Props) => !props.showFrameCounter,
+    },
+    counterFontSize: {
+        type: ControlType.Number,
+        title: "Font Size",
+        defaultValue: 11,
+        min: 6,
+        max: 72,
+        step: 1,
+        unit: "px",
+        hidden: (props) => !props.showFrameCounter,
+    },
+    counterFontWeight: {
+        type: ControlType.Enum,
+        title: "Weight",
+        options: [100, 200, 300, 400, 500, 600, 700, 800, 900],
+        optionTitles: [
+            "Thin",
+            "ExtraLight",
+            "Light",
+            "Regular",
+            "Medium",
+            "SemiBold",
+            "Bold",
+            "ExtraBold",
+            "Black",
+        ],
+        defaultValue: 400,
+        hidden: (props) => !props.showFrameCounter,
+    },
+    counterColor: {
+        type: ControlType.Color,
+        title: "Text Color",
+        defaultValue: "#ffffff",
+        hidden: (props) => !props.showFrameCounter,
     },
 
     // ── Dynamic overlay ───────────────────────────────────────────
