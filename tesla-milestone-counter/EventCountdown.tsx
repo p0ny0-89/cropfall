@@ -97,6 +97,7 @@ export default function EventCountdown({
 }: Record<string, any>) {
     const FALLBACK_FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     const counterFontFamily = counterFont?.fontFamily || FALLBACK_FONT
+    const counterFontWeight = counterFont?.fontWeight || 400
     const labelFontFamily = labelFont?.fontFamily || FALLBACK_FONT
 
     const containerRef = useRef<HTMLDivElement>(null)
@@ -232,7 +233,7 @@ export default function EventCountdown({
                                     style={{
                                         fontFamily: counterFontFamily,
                                         fontSize: counterFontSize,
-                                        fontWeight: 200,
+                                        fontWeight: counterFontWeight,
                                         lineHeight: 1,
                                         fontVariantNumeric: "tabular-nums",
                                         letterSpacing: "-0.01em",
@@ -261,7 +262,7 @@ export default function EventCountdown({
                                     style={{
                                         fontFamily: counterFontFamily,
                                         fontSize: counterFontSize * 0.7,
-                                        fontWeight: 200,
+                                        fontWeight: counterFontWeight,
                                         lineHeight: 1,
                                         color: separatorColor,
                                         padding: `0 ${counterFontSize * 0.2}px`,
