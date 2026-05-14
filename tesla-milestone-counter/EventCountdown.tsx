@@ -206,7 +206,7 @@ export default function EventCountdown({
                     style={{
                         display: "flex",
                         alignItems: "baseline",
-                        gap: useColon ? 0 : 32,
+                        gap: useColon ? 0 : counterFontSize * 0.5,
                         ...revealStyle(hasAppeared, 120),
                     }}
                 >
@@ -223,7 +223,7 @@ export default function EventCountdown({
                                     display: "flex",
                                     flexDirection: "column",
                                     alignItems: "center",
-                                    minWidth: seg.key === "d" ? undefined : "clamp(48px, 8vw, 96px)",
+                                    minWidth: seg.key === "d" ? undefined : counterFontSize * 1.3,
                                 }}
                             >
                                 <span
@@ -246,7 +246,7 @@ export default function EventCountdown({
                                             fontWeight: 600,
                                             letterSpacing: "0.18em",
                                             color: dimColor,
-                                            marginTop: 8,
+                                            marginTop: counterFontSize * 0.12,
                                         }}
                                     >
                                         {seg.label}
@@ -262,7 +262,7 @@ export default function EventCountdown({
                                         fontWeight: 200,
                                         lineHeight: 1,
                                         color: separatorColor,
-                                        padding: "0 clamp(8px, 1.5vw, 16px)",
+                                        padding: `0 ${counterFontSize * 0.2}px`,
                                         alignSelf: "flex-start",
                                     }}
                                 >
