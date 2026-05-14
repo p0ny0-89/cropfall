@@ -78,6 +78,7 @@ export default function EventCountdown({
     showMinutes = true,
     showSeconds = true,
     showLabels = true,
+    labelPosition = "Below",
     showEventLabel = true,
     showEventEnded = true,
     endedMessage = "THE EVENT HAS BEGUN",
@@ -225,9 +226,10 @@ export default function EventCountdown({
                             <div
                                 style={{
                                     display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    minWidth: seg.key === "d" ? undefined : counterFontSize * 1.3,
+                                    flexDirection: labelPosition === "Inline" ? "row" : "column",
+                                    alignItems: labelPosition === "Inline" ? "baseline" : "center",
+                                    gap: labelPosition === "Inline" ? counterFontSize * 0.15 : 0,
+                                    minWidth: labelPosition === "Inline" ? undefined : (seg.key === "d" ? undefined : counterFontSize * 1.3),
                                 }}
                             >
                                 <span
@@ -250,7 +252,7 @@ export default function EventCountdown({
                                             fontWeight: labelFontWeight,
                                             letterSpacing: "0.18em",
                                             color: dimColor,
-                                            marginTop: counterFontSize * 0.12,
+                                            marginTop: labelPosition === "Inline" ? 0 : counterFontSize * 0.12,
                                         }}
                                     >
                                         {seg.label}
@@ -348,6 +350,13 @@ addPropertyControls(EventCountdown, {
         type: ControlType.Boolean,
         title: "Unit Labels",
         defaultValue: true,
+    },
+    labelPosition: {
+        type: ControlType.Enum,
+        title: "Label Position",
+        options: ["Below", "Inline"],
+        defaultValue: "Below",
+        hidden: (props: any) => !props.showLabels,
     },
     separatorStyle: {
         type: ControlType.Enum,
