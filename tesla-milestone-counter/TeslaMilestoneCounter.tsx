@@ -77,6 +77,8 @@ export default function TeslaMilestoneCounter({
     backgroundColor = "#0a0a0a",
     textColor = "#e8e8e8",
     accentColor = "#c0392b",
+    counterFontFamily = "Inter, -apple-system, sans-serif",
+    bodyFontFamily = "Inter, -apple-system, sans-serif",
     cardBackgroundColor = "rgba(255,255,255,0.04)",
     borderColor = "rgba(255,255,255,0.08)",
     debugMode = false,
@@ -193,8 +195,7 @@ export default function TeslaMilestoneCounter({
                 justifyContent: "center",
                 padding: "60px 24px",
                 boxSizing: "border-box",
-                fontFamily:
-                    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                fontFamily: bodyFontFamily,
                 position: "relative",
                 overflow: "hidden",
             }}
@@ -228,6 +229,7 @@ export default function TeslaMilestoneCounter({
 
                 <div
                     style={{
+                        fontFamily: counterFontFamily,
                         fontSize: "clamp(48px, 10vw, 120px)",
                         fontWeight: 200,
                         letterSpacing: "-0.02em",
@@ -823,6 +825,16 @@ addPropertyControls(TeslaMilestoneCounter, {
         title: "Show %",
         defaultValue: true,
         hidden: (props: any) => !props.showModelBreakdown,
+    },
+    counterFontFamily: {
+        type: ControlType.String,
+        title: "Counter Font",
+        defaultValue: "Inter, -apple-system, sans-serif",
+    },
+    bodyFontFamily: {
+        type: ControlType.String,
+        title: "Body Font",
+        defaultValue: "Inter, -apple-system, sans-serif",
     },
     backgroundColor: {
         type: ControlType.Color,
