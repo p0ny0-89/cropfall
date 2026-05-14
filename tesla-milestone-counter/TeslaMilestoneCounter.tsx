@@ -78,6 +78,7 @@ export default function TeslaMilestoneCounter({
     backgroundColor = "#0a0a0a",
     textColor = "#e8e8e8",
     accentColor = "#c0392b",
+    activeColor = "#66bb6a",
     counterFont,
     bodyFont,
     cardBackgroundColor = "rgba(255,255,255,0.04)",
@@ -185,7 +186,7 @@ export default function TeslaMilestoneCounter({
 
     const statusLabel = milestoneReached
         ? `${formatNumber(milestoneCount)} MILESTONE REACHED`
-        : `EST. ${formatNumber(milestoneCount)}TH VEHICLE`
+        : "APPROACHING 2 MILLION"
 
     const dateLabel = milestoneReached ? reachedDate : estimatedMilestoneDate
 
@@ -278,7 +279,7 @@ export default function TeslaMilestoneCounter({
                         >
                             {milestoneReached
                                 ? "MILESTONE DATE"
-                                : "ESTIMATED MILESTONE DATE"}
+                                : "PROJECTED MILESTONE DATE"}
                         </div>
                         <div
                             style={{
@@ -329,6 +330,7 @@ export default function TeslaMilestoneCounter({
                             showPercentages={showPercentages}
                             textColor={textColor}
                             accentColor={accentColor}
+                            activeColor={activeColor}
                             cardBg={cardBackgroundColor}
                             borderColor={borderColor}
                             hasAppeared={hasAppeared}
@@ -341,6 +343,7 @@ export default function TeslaMilestoneCounter({
                             showPercentages={showPercentages}
                             textColor={textColor}
                             accentColor={accentColor}
+                            activeColor={activeColor}
                             borderColor={borderColor}
                             hasAppeared={hasAppeared}
                         />
@@ -384,6 +387,7 @@ function BentoGrid({
     showPercentages,
     textColor,
     accentColor,
+    activeColor,
     cardBg,
     borderColor,
     hasAppeared,
@@ -394,6 +398,7 @@ function BentoGrid({
     showPercentages: boolean
     textColor: string
     accentColor: string
+    activeColor: string
     cardBg: string
     borderColor: string
     hasAppeared: boolean
@@ -455,7 +460,7 @@ function BentoGrid({
                                     textTransform: "uppercase",
                                     color:
                                         model.status === "Active"
-                                            ? "#4caf50"
+                                            ? activeColor
                                             : model.status === "Future"
                                               ? `${textColor}44`
                                               : `${textColor}66`,
@@ -473,7 +478,7 @@ function BentoGrid({
                                 color: isFuture ? `${textColor}55` : textColor,
                             }}
                         >
-                            {isFuture ? "Coming Next" : formatNumber(count)}
+                            {isFuture ? "—" : formatNumber(count)}
                         </div>
 
                         {!isFuture && (
@@ -557,6 +562,7 @@ function DataRows({
     showPercentages,
     textColor,
     accentColor,
+    activeColor,
     borderColor,
     hasAppeared,
 }: {
@@ -566,6 +572,7 @@ function DataRows({
     showPercentages: boolean
     textColor: string
     accentColor: string
+    activeColor: string
     borderColor: string
     hasAppeared: boolean
 }) {
@@ -718,7 +725,7 @@ function DataRows({
                                 flexShrink: 0,
                             }}
                         >
-                            {isFuture ? "Future" : formatNumber(count)}
+                            {isFuture ? "—" : formatNumber(count)}
                         </div>
 
                         {showPercentages && (
@@ -755,7 +762,7 @@ function DataRows({
                                         width: 5,
                                         height: 5,
                                         borderRadius: "50%",
-                                        backgroundColor: "#66bb6a",
+                                        backgroundColor: activeColor,
                                         animation:
                                             "pulse-dot 2.4s ease-in-out infinite",
                                         flexShrink: 0,
@@ -905,6 +912,12 @@ addPropertyControls(TeslaMilestoneCounter, {
         type: ControlType.Color,
         title: "Accent Color",
         defaultValue: "#c0392b",
+    },
+    activeColor: {
+        type: ControlType.Color,
+        title: "Active Color",
+        defaultValue: "#66bb6a",
+        hidden: (props: any) => !props.showModelBreakdown,
     },
     cardBackgroundColor: {
         type: ControlType.Color,
