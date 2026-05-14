@@ -83,6 +83,7 @@ export default function TeslaMilestoneCounter({
     bodyFont,
     cardBackgroundColor = "rgba(255,255,255,0.04)",
     borderColor = "rgba(255,255,255,0.08)",
+    repeatReveal = false,
     debugMode = false,
 }: Record<string, any>) {
     const FALLBACK_FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
@@ -93,8 +94,12 @@ export default function TeslaMilestoneCounter({
     const isInView = useInView(containerRef)
     const [hasAppeared, setHasAppeared] = useState(false)
     useEffect(() => {
-        if (isInView && !hasAppeared) setHasAppeared(true)
-    }, [isInView, hasAppeared])
+        if (repeatReveal) {
+            setHasAppeared(isInView)
+        } else if (isInView && !hasAppeared) {
+            setHasAppeared(true)
+        }
+    }, [isInView, hasAppeared, repeatReveal])
     const rafRef = useRef<number>(0)
     const startTimeRef = useRef<number>(0)
     const mainCountRef = useRef(initialCount)
@@ -380,6 +385,50 @@ export default function TeslaMilestoneCounter({
     )
 }
 
+const SEGMENT_COUNT = 12
+const SEGMENT_GAP = 2
+const SEGMENT_RADIUS = 2
+
+function SegmentedBar({
+    fillPercent,
+    height,
+    accentColor,
+    trackColor,
+}: {
+    fillPercent: number
+    height: number
+    accentColor: string
+    trackColor: string
+}) {
+    const filledSegments = Math.round((fillPercent / 100) * SEGMENT_COUNT)
+    return (
+        <div
+            style={{
+                display: "flex",
+                gap: SEGMENT_GAP,
+                width: "100%",
+                height,
+            }}
+        >
+            {Array.from({ length: SEGMENT_COUNT }, (_, i) => {
+                const filled = i < filledSegments
+                return (
+                    <div
+                        key={i}
+                        style={{
+                            flex: 1,
+                            borderRadius: SEGMENT_RADIUS,
+                            backgroundColor: filled ? accentColor : trackColor,
+                            opacity: filled ? 0.8 : 1,
+                            transition: "background-color 0.4s ease",
+                        }}
+                    />
+                )
+            })}
+        </div>
+    )
+}
+
 function BentoGrid({
     models,
     counts,
@@ -482,26 +531,12 @@ function BentoGrid({
                         </div>
 
                         {!isFuture && (
-                            <div
-                                style={{
-                                    width: "100%",
-                                    height: 3,
-                                    background: `${textColor}0d`,
-                                    borderRadius: 2,
-                                    overflow: "hidden",
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        width: `${pct ?? 0}%`,
-                                        height: "100%",
-                                        background: accentColor,
-                                        borderRadius: 2,
-                                        transition: "width 0.5s ease",
-                                        opacity: 0.7,
-                                    }}
-                                />
-                            </div>
+                            <SegmentedBar
+                                fillPercent={Number(pct ?? 0)}
+                                height={6}
+                                accentColor={accentColor}
+                                trackColor={`${textColor}0d`}
+                            />
                         )}
 
                         {showPercentages && pct && (
@@ -689,24 +724,20 @@ function DataRows({
                             {model.name}
                         </div>
 
-                        <div
-                            style={{
-                                flex: 1,
-                                height: 2,
-                                background: `${textColor}0d`,
-                                borderRadius: 1,
-                                overflow: "hidden",
-                            }}
-                        >
-                            {!isFuture && (
+                        <div style={{ flex: 1 }}>
+                            {!isFuture ? (
+                                <SegmentedBar
+                                    fillPercent={barPct}
+                                    height={4}
+                                    accentColor={accentColor}
+                                    trackColor={`${textColor}0d`}
+                                />
+                            ) : (
                                 <div
                                     style={{
-                                        width: `${barPct}%`,
-                                        height: "100%",
-                                        background: accentColor,
-                                        borderRadius: 1,
-                                        transition: "width 0.5s ease",
-                                        opacity: 0.65,
+                                        height: 4,
+                                        background: `${textColor}06`,
+                                        borderRadius: SEGMENT_RADIUS,
                                     }}
                                 />
                             )}
@@ -931,6 +962,11 @@ addPropertyControls(TeslaMilestoneCounter, {
         title: "Border Color",
         defaultValue: "rgba(255,255,255,0.08)",
         hidden: (props: any) => !props.showModelBreakdown,
+    },
+    repeatReveal: {
+        type: ControlType.Boolean,
+        title: "Repeat Reveal",
+        defaultValue: false,
     },
     debugMode: {
         type: ControlType.Boolean,
