@@ -85,6 +85,10 @@ export default function TeslaMilestoneCounter({
 }: Record<string, any>) {
     const containerRef = useRef<HTMLDivElement>(null)
     const isInView = useInView(containerRef)
+    const [hasAppeared, setHasAppeared] = useState(false)
+    useEffect(() => {
+        if (isInView && !hasAppeared) setHasAppeared(true)
+    }, [isInView, hasAppeared])
     const rafRef = useRef<number>(0)
     const startTimeRef = useRef<number>(0)
     const mainCountRef = useRef(initialCount)
@@ -200,6 +204,8 @@ export default function TeslaMilestoneCounter({
                 overflow: "hidden",
             }}
         >
+            <style>{SHARED_KEYFRAMES}</style>
+
             {/* Main counter */}
             <div
                 style={{
@@ -221,6 +227,7 @@ export default function TeslaMilestoneCounter({
                                 : `${textColor}99`,
                             marginBottom: 20,
                             transition: "color 0.6s ease",
+                            ...revealStyle(hasAppeared, 0),
                         }}
                     >
                         {statusLabel}
@@ -239,6 +246,7 @@ export default function TeslaMilestoneCounter({
                             ? `0 0 60px ${accentColor}33, 0 0 120px ${accentColor}11`
                             : `0 0 60px ${textColor}0d, 0 0 120px ${textColor}05`,
                         transition: "text-shadow 1s ease",
+                        ...revealStyle(hasAppeared, 120),
                     }}
                 >
                     {formatNumber(displayCount)}
@@ -249,6 +257,7 @@ export default function TeslaMilestoneCounter({
                         style={{
                             marginTop: 20,
                             textAlign: "center",
+                            ...revealStyle(hasAppeared, 240),
                         }}
                     >
                         <div
@@ -316,6 +325,7 @@ export default function TeslaMilestoneCounter({
                             accentColor={accentColor}
                             cardBg={cardBackgroundColor}
                             borderColor={borderColor}
+                            hasAppeared={hasAppeared}
                         />
                     ) : (
                         <DataRows
@@ -326,6 +336,7 @@ export default function TeslaMilestoneCounter({
                             textColor={textColor}
                             accentColor={accentColor}
                             borderColor={borderColor}
+                            hasAppeared={hasAppeared}
                         />
                     )}
                 </div>
@@ -369,6 +380,7 @@ function BentoGrid({
     accentColor,
     cardBg,
     borderColor,
+    hasAppeared,
 }: {
     models: ModelData[]
     counts: number[]
@@ -378,6 +390,7 @@ function BentoGrid({
     accentColor: string
     cardBg: string
     borderColor: string
+    hasAppeared: boolean
 }) {
     return (
         <div
@@ -404,8 +417,11 @@ function BentoGrid({
                             display: "flex",
                             flexDirection: "column",
                             gap: 10,
-                            opacity: isFuture ? 0.45 : 1,
-                            transition: "opacity 0.3s ease",
+                            ...revealStyle(
+                                hasAppeared,
+                                400 + i * 60,
+                                isFuture ? 0.45 : undefined
+                            ),
                         }}
                     >
                         <div
@@ -495,12 +511,38 @@ function BentoGrid({
     )
 }
 
-const PULSE_KEYFRAMES = `
+const SHARED_KEYFRAMES = `
 @keyframes pulse-dot {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.35; }
 }
+@keyframes reveal-up {
+    from {
+        opacity: 0;
+        transform: translateY(24px);
+    }
+    to {
+        opacity: var(--reveal-opacity, 1);
+        transform: translateY(0);
+    }
+}
 `
+
+function revealStyle(
+    appeared: boolean,
+    delayMs: number,
+    finalOpacity?: number
+): Record<string, any> {
+    if (!appeared) {
+        return { opacity: 0, transform: "translateY(24px)" }
+    }
+    return {
+        ...(finalOpacity != null
+            ? { "--reveal-opacity": String(finalOpacity) }
+            : {}),
+        animation: `reveal-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) ${delayMs}ms both`,
+    }
+}
 
 function DataRows({
     models,
@@ -510,6 +552,7 @@ function DataRows({
     textColor,
     accentColor,
     borderColor,
+    hasAppeared,
 }: {
     models: ModelData[]
     counts: number[]
@@ -518,6 +561,7 @@ function DataRows({
     textColor: string
     accentColor: string
     borderColor: string
+    hasAppeared: boolean
 }) {
     const maxActiveCount = useMemo(() => {
         let max = 0
@@ -540,8 +584,6 @@ function DataRows({
 
     return (
         <div style={{ display: "flex", flexDirection: "column" }}>
-            <style>{PULSE_KEYFRAMES}</style>
-
             {/* Column headers */}
             <div
                 style={{
@@ -551,6 +593,7 @@ function DataRows({
                     paddingBottom: 10,
                     borderBottom: `1px solid ${borderColor}`,
                     marginBottom: 2,
+                    ...revealStyle(hasAppeared, 360),
                 }}
             >
                 <div style={{ ...headerStyle, width: 120, flexShrink: 0 }}>
@@ -612,8 +655,12 @@ function DataRows({
                             alignItems: "center",
                             padding: "13px 0",
                             borderBottom: `1px solid ${borderColor}`,
-                            opacity: isFuture ? 0.35 : 1,
                             gap: 16,
+                            ...revealStyle(
+                                hasAppeared,
+                                400 + i * 50,
+                                isFuture ? 0.35 : undefined
+                            ),
                         }}
                     >
                         <div
