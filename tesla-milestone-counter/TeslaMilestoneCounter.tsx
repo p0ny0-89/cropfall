@@ -245,14 +245,34 @@ export default function TeslaMilestoneCounter({
                 {showDate && (
                     <div
                         style={{
-                            fontSize: 14,
-                            fontWeight: 400,
-                            color: `${textColor}66`,
-                            marginTop: 16,
-                            letterSpacing: "0.05em",
+                            marginTop: 20,
+                            textAlign: "center",
                         }}
                     >
-                        {dateLabel}
+                        <div
+                            style={{
+                                fontSize: 10,
+                                fontWeight: 500,
+                                letterSpacing: "0.15em",
+                                textTransform: "uppercase",
+                                color: `${textColor}55`,
+                                marginBottom: 6,
+                            }}
+                        >
+                            {milestoneReached
+                                ? "MILESTONE DATE"
+                                : "ESTIMATED MILESTONE DATE"}
+                        </div>
+                        <div
+                            style={{
+                                fontSize: 15,
+                                fontWeight: 400,
+                                color: `${textColor}99`,
+                                letterSpacing: "0.04em",
+                            }}
+                        >
+                            {dateLabel}
+                        </div>
                     </div>
                 )}
             </div>
@@ -473,6 +493,13 @@ function BentoGrid({
     )
 }
 
+const PULSE_KEYFRAMES = `
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+`
+
 function DataRows({
     models,
     counts,
@@ -490,13 +517,90 @@ function DataRows({
     accentColor: string
     borderColor: string
 }) {
+    const maxActiveCount = useMemo(() => {
+        let max = 0
+        for (let i = 0; i < models.length; i++) {
+            if (models[i].status !== "Future") {
+                const c = counts[i] ?? models[i].count
+                if (c > max) max = c
+            }
+        }
+        return max
+    }, [models, counts])
+
+    const headerStyle: React.CSSProperties = {
+        fontSize: 9,
+        fontWeight: 600,
+        letterSpacing: "0.14em",
+        textTransform: "uppercase",
+        color: `${textColor}44`,
+    }
+
     return (
         <div style={{ display: "flex", flexDirection: "column" }}>
+            <style>{PULSE_KEYFRAMES}</style>
+
+            {/* Column headers */}
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 16,
+                    paddingBottom: 10,
+                    borderBottom: `1px solid ${borderColor}`,
+                    marginBottom: 2,
+                }}
+            >
+                <div style={{ ...headerStyle, width: 120, flexShrink: 0 }}>
+                    Model
+                </div>
+                <div style={{ ...headerStyle, flex: 1 }}>Contribution</div>
+                <div
+                    style={{
+                        ...headerStyle,
+                        width: 100,
+                        textAlign: "right",
+                        flexShrink: 0,
+                    }}
+                >
+                    Count
+                </div>
+                {showPercentages && (
+                    <div
+                        style={{
+                            ...headerStyle,
+                            width: 50,
+                            textAlign: "right",
+                            flexShrink: 0,
+                        }}
+                    >
+                        Share
+                    </div>
+                )}
+                <div
+                    style={{
+                        ...headerStyle,
+                        width: 90,
+                        textAlign: "right",
+                        flexShrink: 0,
+                    }}
+                >
+                    Status
+                </div>
+            </div>
+
             {models.map((model, i) => {
                 const isFuture = model.status === "Future"
                 const count = counts[i] ?? model.count
                 const pct =
-                    total > 0 && !isFuture ? ((count / total) * 100).toFixed(1) : null
+                    total > 0 && !isFuture
+                        ? ((count / total) * 100).toFixed(1)
+                        : null
+                const barPct =
+                    maxActiveCount > 0 && !isFuture
+                        ? (count / maxActiveCount) * 100
+                        : 0
+                const isActive = model.status === "Active"
 
                 return (
                     <div
@@ -504,9 +608,9 @@ function DataRows({
                         style={{
                             display: "flex",
                             alignItems: "center",
-                            padding: "14px 0",
+                            padding: "13px 0",
                             borderBottom: `1px solid ${borderColor}`,
-                            opacity: isFuture ? 0.4 : 1,
+                            opacity: isFuture ? 0.35 : 1,
                             gap: 16,
                         }}
                     >
@@ -516,7 +620,7 @@ function DataRows({
                                 fontSize: 12,
                                 fontWeight: 600,
                                 letterSpacing: "0.04em",
-                                color: textColor,
+                                color: isFuture ? `${textColor}55` : textColor,
                                 flexShrink: 0,
                             }}
                         >
@@ -530,18 +634,17 @@ function DataRows({
                                 background: `${textColor}0d`,
                                 borderRadius: 1,
                                 overflow: "hidden",
-                                position: "relative",
                             }}
                         >
                             {!isFuture && (
                                 <div
                                     style={{
-                                        width: `${pct ?? 0}%`,
+                                        width: `${barPct}%`,
                                         height: "100%",
                                         background: accentColor,
                                         borderRadius: 1,
                                         transition: "width 0.5s ease",
-                                        opacity: 0.6,
+                                        opacity: 0.65,
                                     }}
                                 />
                             )}
@@ -554,7 +657,9 @@ function DataRows({
                                 fontSize: 14,
                                 fontWeight: 300,
                                 fontVariantNumeric: "tabular-nums",
-                                color: isFuture ? `${textColor}44` : textColor,
+                                color: isFuture
+                                    ? `${textColor}44`
+                                    : `${textColor}dd`,
                                 flexShrink: 0,
                             }}
                         >
@@ -567,7 +672,9 @@ function DataRows({
                                     width: 50,
                                     textAlign: "right",
                                     fontSize: 11,
-                                    color: `${textColor}44`,
+                                    color: isFuture
+                                        ? `${textColor}33`
+                                        : `${textColor}77`,
                                     fontVariantNumeric: "tabular-nums",
                                     flexShrink: 0,
                                 }}
@@ -578,20 +685,41 @@ function DataRows({
 
                         <div
                             style={{
-                                width: 80,
-                                textAlign: "right",
-                                fontSize: 9,
-                                fontWeight: 500,
-                                letterSpacing: "0.1em",
-                                textTransform: "uppercase",
-                                color:
-                                    model.status === "Active"
-                                        ? "#4caf50"
-                                        : `${textColor}55`,
+                                width: 90,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "flex-end",
+                                gap: 6,
                                 flexShrink: 0,
                             }}
                         >
-                            {model.status}
+                            {isActive && (
+                                <span
+                                    style={{
+                                        display: "inline-block",
+                                        width: 5,
+                                        height: 5,
+                                        borderRadius: "50%",
+                                        backgroundColor: "#66bb6a",
+                                        animation:
+                                            "pulse-dot 2.4s ease-in-out infinite",
+                                        flexShrink: 0,
+                                    }}
+                                />
+                            )}
+                            <span
+                                style={{
+                                    fontSize: 9,
+                                    fontWeight: 500,
+                                    letterSpacing: "0.1em",
+                                    textTransform: "uppercase",
+                                    color: isActive
+                                        ? `${textColor}55`
+                                        : `${textColor}44`,
+                                }}
+                            >
+                                {model.status}
+                            </span>
                         </div>
                     </div>
                 )
