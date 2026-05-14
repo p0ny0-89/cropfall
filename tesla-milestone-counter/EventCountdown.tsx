@@ -82,6 +82,8 @@ export default function EventCountdown({
     showEventEnded = true,
     endedMessage = "THE EVENT HAS BEGUN",
     separatorStyle = "Colon",
+    counterFontSize = 64,
+    labelFontSize = 9,
     counterFont,
     labelFont,
     backgroundColor = "transparent",
@@ -227,7 +229,7 @@ export default function EventCountdown({
                                 <span
                                     style={{
                                         fontFamily: counterFontFamily,
-                                        fontSize: "clamp(36px, 8vw, 80px)",
+                                        fontSize: counterFontSize,
                                         fontWeight: 200,
                                         lineHeight: 1,
                                         fontVariantNumeric: "tabular-nums",
@@ -240,7 +242,7 @@ export default function EventCountdown({
                                 {showLabels && (
                                     <span
                                         style={{
-                                            fontSize: 9,
+                                            fontSize: labelFontSize,
                                             fontWeight: 600,
                                             letterSpacing: "0.18em",
                                             color: dimColor,
@@ -256,7 +258,7 @@ export default function EventCountdown({
                                 <span
                                     style={{
                                         fontFamily: counterFontFamily,
-                                        fontSize: "clamp(28px, 6vw, 56px)",
+                                        fontSize: counterFontSize * 0.7,
                                         fontWeight: 200,
                                         lineHeight: 1,
                                         color: separatorColor,
@@ -359,6 +361,24 @@ addPropertyControls(EventCountdown, {
         title: "Ended Message",
         defaultValue: "THE EVENT HAS BEGUN",
         hidden: (props: any) => !props.showEventEnded,
+    },
+    counterFontSize: {
+        type: ControlType.Number,
+        title: "Counter Size",
+        defaultValue: 64,
+        min: 16,
+        max: 200,
+        step: 1,
+        unit: "px",
+    },
+    labelFontSize: {
+        type: ControlType.Number,
+        title: "Label Size",
+        defaultValue: 9,
+        min: 6,
+        max: 24,
+        step: 1,
+        unit: "px",
     },
     counterFont: {
         //@ts-ignore
