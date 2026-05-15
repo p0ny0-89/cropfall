@@ -169,8 +169,6 @@ export default function ScrollImageSequence(props: Props) {
     const [loadProgress, setLoadProgress] = useState(0)
     const [isLoaded, setIsLoaded] = useState(false)
     const [currentFrame, setCurrentFrame] = useState(0)
-    const [imgError, setImgError] = useState(false)
-
     const isCanvas = RenderTarget.current() === RenderTarget.canvas
 
     // Build the list of frame URLs
@@ -721,21 +719,21 @@ export default function ScrollImageSequence(props: Props) {
                     </div>
                 )}
 
-                {/* Current frame — native <img> for best scaling quality */}
-                {frameUrls[displayFrame] && !imgError && (
+                {/* Current frame — native <img> for best scaling quality.
+                     On canvas, skip rendering if no preload has happened
+                     (remote URLs typically can't be fetched on the canvas). */}
+                {frameUrls[displayFrame] && (!isCanvas || isLoaded) && (
                     <img
                         src={frameUrls[displayFrame]}
                         decoding="sync"
                         alt=""
-                        onError={() => setImgError(true)}
-                        onLoad={() => setImgError(false)}
                         style={{
                             display: "block",
                             width: "100%",
                             height: "100%",
                             objectFit: objectFit,
                             objectPosition: `${objectPositionX}% ${objectPositionY}%`,
-                            opacity: isLoaded || isCanvas ? sequenceOpacity : 0,
+                            opacity: isLoaded ? sequenceOpacity : 0,
                             transition: "opacity 0.3s ease",
                         }}
                     />
