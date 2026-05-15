@@ -1,4 +1,4 @@
-import { addPropertyControls, ControlType } from "framer"
+import { addPropertyControls, ControlType, RenderTarget } from "framer"
 import {
     useState,
     useEffect,
@@ -32,6 +32,8 @@ interface Props {
     backgroundColor: string
     sequenceOpacity: number
     enablePreload: boolean
+    // Canvas preview
+    canvasFrame: number
     // Frame counter (debug)
     showFrameCounter: boolean
     // Progress overlay
@@ -118,6 +120,7 @@ export default function ScrollImageSequence(props: Props) {
         backgroundColor = "#000000",
         sequenceOpacity = 1,
         enablePreload = true,
+        canvasFrame = 0,
         showFrameCounter = false,
         showProgressOverlay = false,
         chapters = [],
@@ -167,6 +170,8 @@ export default function ScrollImageSequence(props: Props) {
     const [isLoaded, setIsLoaded] = useState(false)
     const [currentFrame, setCurrentFrame] = useState(0)
 
+    const isCanvas = RenderTarget.current() === RenderTarget.canvas
+
     // Build the list of frame URLs
     const frameUrls = useMemo(() => {
         if (sourceMode === "manual" && manualUrls.trim()) {
@@ -196,6 +201,11 @@ export default function ScrollImageSequence(props: Props) {
     ])
 
     const totalFrames = frameUrls.length
+
+    // On the Framer canvas, show canvasFrame instead of scroll-driven frame
+    const displayFrame = isCanvas
+        ? Math.max(0, Math.min(canvasFrame, totalFrames - 1))
+        : currentFrame
 
     // ── Preload images ──────────────────────────────────────────────
 
@@ -711,9 +721,9 @@ export default function ScrollImageSequence(props: Props) {
                 )}
 
                 {/* Current frame — native <img> for best scaling quality */}
-                {frameUrls[currentFrame] && (
+                {frameUrls[displayFrame] && (
                     <img
-                        src={frameUrls[currentFrame]}
+                        src={frameUrls[displayFrame]}
                         decoding="sync"
                         alt=""
                         style={{
@@ -760,14 +770,14 @@ export default function ScrollImageSequence(props: Props) {
                             zIndex: 20,
                         }}
                     >
-                        {currentFrame} / {totalFrames - 1}
+                        {displayFrame} / {totalFrames - 1}
                     </div>
                 )}
 
                 {/* Chapter progress overlay */}
                 {showProgressOverlay && chapters.length > 0 && (
                     <ChapterProgressOverlay
-                        currentFrame={currentFrame}
+                        currentFrame={displayFrame}
                         totalFrames={totalFrames}
                         chapters={chapters}
                         progressMode={progressMode}
@@ -1169,6 +1179,16 @@ addPropertyControls(ScrollImageSequence, {
         type: ControlType.Boolean,
         title: "Preload All",
         defaultValue: true,
+    },
+
+    // ── Canvas preview ────────────────────────────────────────────
+    canvasFrame: {
+        type: ControlType.Number,
+        title: "Canvas Frame",
+        defaultValue: 0,
+        min: 0,
+        step: 1,
+        description: "Frame to display on the Framer canvas for design alignment",
     },
 
     // ── Frame counter (debug) ──────────────────────────────────────

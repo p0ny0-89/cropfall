@@ -1,4 +1,4 @@
-import { addPropertyControls, ControlType } from "framer"
+import { addPropertyControls, ControlType, RenderTarget } from "framer"
 import { useEffect, useRef, useState } from "react"
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -40,6 +40,8 @@ interface Props {
     endOpacity: number
     // Easing
     easing: "linear" | "ease-in" | "ease-out" | "ease-in-out"
+    // Canvas preview
+    previewKeyframe: "hidden" | "start" | "peak" | "end"
 }
 
 // ─── Easing functions ───────────────────────────────────────────────
@@ -117,8 +119,10 @@ export default function ScrollCard3D(props: Props) {
         endRotateZ = 3,
         endOpacity = 0,
         easing = "ease-in-out",
+        previewKeyframe = "peak",
     } = props
 
+    const isCanvas = RenderTarget.current() === RenderTarget.canvas
     const containerRef = useRef<HTMLDivElement>(null)
     const rafRef = useRef<number>(0)
     const [currentFrame, setCurrentFrame] = useState(0)
@@ -175,13 +179,6 @@ export default function ScrollCard3D(props: Props) {
 
     // ── Compute interpolated values ─────────────────────────────────
 
-    // Determine visibility and progress
-    const isVisible =
-        currentFrame >= enterFrame && currentFrame <= exitFrame
-    const isPre = currentFrame < enterFrame
-    const isPost = currentFrame > exitFrame
-
-    // Calculate t (0→1) within each segment
     let x: number,
         y: number,
         scale: number,
@@ -190,48 +187,68 @@ export default function ScrollCard3D(props: Props) {
         rotZ: number,
         opacity: number
 
-    if (isPre || !isVisible) {
-        // Before enter — use start values
-        x = startX
-        y = startY
-        scale = startScale
-        rotX = startRotateX
-        rotY = startRotateY
-        rotZ = startRotateZ
-        opacity = 0
-    } else if (isPost) {
-        // After exit — use end values
-        x = endX
-        y = endY
-        scale = endScale
-        rotX = endRotateX
-        rotY = endRotateY
-        rotZ = endRotateZ
-        opacity = 0
-    } else if (currentFrame <= peakFrame) {
-        // Enter → Peak
-        const range = peakFrame - enterFrame
-        const rawT = range > 0 ? (currentFrame - enterFrame) / range : 1
-        const t = applyEasing(rawT, easing)
-        x = lerp(startX, peakX, t)
-        y = lerp(startY, peakY, t)
-        scale = lerp(startScale, peakScale, t)
-        rotX = lerp(startRotateX, peakRotateX, t)
-        rotY = lerp(startRotateY, peakRotateY, t)
-        rotZ = lerp(startRotateZ, peakRotateZ, t)
-        opacity = lerp(startOpacity, peakOpacity, t)
+    if (isCanvas) {
+        // ── Canvas preview: show static keyframe pose ──────────────
+        switch (previewKeyframe) {
+            case "start":
+                x = startX; y = startY; scale = startScale
+                rotX = startRotateX; rotY = startRotateY; rotZ = startRotateZ
+                opacity = startOpacity
+                break
+            case "peak":
+                x = peakX; y = peakY; scale = peakScale
+                rotX = peakRotateX; rotY = peakRotateY; rotZ = peakRotateZ
+                opacity = peakOpacity
+                break
+            case "end":
+                x = endX; y = endY; scale = endScale
+                rotX = endRotateX; rotY = endRotateY; rotZ = endRotateZ
+                opacity = endOpacity
+                break
+            default: // "hidden"
+                x = 0; y = 0; scale = 1
+                rotX = 0; rotY = 0; rotZ = 0
+                opacity = 0
+                break
+        }
     } else {
-        // Peak → Exit
-        const range = exitFrame - peakFrame
-        const rawT = range > 0 ? (currentFrame - peakFrame) / range : 1
-        const t = applyEasing(rawT, easing)
-        x = lerp(peakX, endX, t)
-        y = lerp(peakY, endY, t)
-        scale = lerp(peakScale, endScale, t)
-        rotX = lerp(peakRotateX, endRotateX, t)
-        rotY = lerp(peakRotateY, endRotateY, t)
-        rotZ = lerp(peakRotateZ, endRotateZ, t)
-        opacity = lerp(peakOpacity, endOpacity, t)
+        // ── Live preview: scroll-driven interpolation ──────────────
+        const isVisible =
+            currentFrame >= enterFrame && currentFrame <= exitFrame
+        const isPre = currentFrame < enterFrame
+        const isPost = currentFrame > exitFrame
+
+        if (isPre || !isVisible) {
+            x = startX; y = startY; scale = startScale
+            rotX = startRotateX; rotY = startRotateY; rotZ = startRotateZ
+            opacity = 0
+        } else if (isPost) {
+            x = endX; y = endY; scale = endScale
+            rotX = endRotateX; rotY = endRotateY; rotZ = endRotateZ
+            opacity = 0
+        } else if (currentFrame <= peakFrame) {
+            const range = peakFrame - enterFrame
+            const rawT = range > 0 ? (currentFrame - enterFrame) / range : 1
+            const t = applyEasing(rawT, easing)
+            x = lerp(startX, peakX, t)
+            y = lerp(startY, peakY, t)
+            scale = lerp(startScale, peakScale, t)
+            rotX = lerp(startRotateX, peakRotateX, t)
+            rotY = lerp(startRotateY, peakRotateY, t)
+            rotZ = lerp(startRotateZ, peakRotateZ, t)
+            opacity = lerp(startOpacity, peakOpacity, t)
+        } else {
+            const range = exitFrame - peakFrame
+            const rawT = range > 0 ? (currentFrame - peakFrame) / range : 1
+            const t = applyEasing(rawT, easing)
+            x = lerp(peakX, endX, t)
+            y = lerp(peakY, endY, t)
+            scale = lerp(peakScale, endScale, t)
+            rotX = lerp(peakRotateX, endRotateX, t)
+            rotY = lerp(peakRotateY, endRotateY, t)
+            rotZ = lerp(peakRotateZ, endRotateZ, t)
+            opacity = lerp(peakOpacity, endOpacity, t)
+        }
     }
 
     // Clamp opacity
@@ -343,6 +360,13 @@ addPropertyControls(ScrollCard3D, {
         options: ["linear", "ease-in", "ease-out", "ease-in-out"],
         optionTitles: ["Linear", "Ease In", "Ease Out", "Ease In-Out"],
         defaultValue: "ease-in-out",
+    },
+    previewKeyframe: {
+        type: ControlType.Enum,
+        title: "Canvas Preview",
+        options: ["hidden", "start", "peak", "end"],
+        optionTitles: ["Hidden", "Start", "Peak", "End"],
+        defaultValue: "peak",
     },
 
     // ── Perspective ─────────────────────────────────────────────────
