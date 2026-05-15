@@ -722,7 +722,7 @@ export default function ScrollImageSequence(props: Props) {
                 {/* Current frame — native <img> for best scaling quality.
                      On canvas, skip rendering if no preload has happened
                      (remote URLs typically can't be fetched on the canvas). */}
-                {frameUrls[displayFrame] && (!isCanvas || isLoaded) && (
+                {frameUrls[displayFrame] && !isCanvas && (
                     <img
                         src={frameUrls[displayFrame]}
                         decoding="sync"
