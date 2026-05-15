@@ -228,7 +228,7 @@ export default function ScrollImageSequence(props: Props) {
                     active++
                     const img = new Image()
                     img.crossOrigin = "anonymous"
-                    img.onload = img.onerror = () => {
+                    img.onload = () => {
                         if (cancelled) return
                         images[idx] = img
                         loaded++
@@ -237,6 +237,21 @@ export default function ScrollImageSequence(props: Props) {
                         if (loaded === totalFrames) {
                             imagesRef.current = images
                             setIsLoaded(true)
+                        }
+                        kick()
+                    }
+                    img.onerror = () => {
+                        if (cancelled) return
+                        // Skip failed images but keep loading
+                        loaded++
+                        active--
+                        setLoadProgress(loaded / totalFrames)
+                        if (loaded === totalFrames) {
+                            // Only mark loaded if at least some images succeeded
+                            if (images.some(Boolean)) {
+                                imagesRef.current = images
+                                setIsLoaded(true)
+                            }
                         }
                         kick()
                     }
@@ -719,12 +734,11 @@ export default function ScrollImageSequence(props: Props) {
                     </div>
                 )}
 
-                {/* Current frame — native <img> for best scaling quality.
-                     On canvas, skip rendering if no preload has happened
-                     (remote URLs typically can't be fetched on the canvas). */}
-                {frameUrls[displayFrame] && !isCanvas && (
+                {/* Current frame — use preloaded image src to avoid broken
+                     image icons; only render once images have loaded */}
+                {isLoaded && imagesRef.current[displayFrame] && (
                     <img
-                        src={frameUrls[displayFrame]}
+                        src={imagesRef.current[displayFrame].src}
                         decoding="sync"
                         alt=""
                         style={{
@@ -733,7 +747,7 @@ export default function ScrollImageSequence(props: Props) {
                             height: "100%",
                             objectFit: objectFit,
                             objectPosition: `${objectPositionX}% ${objectPositionY}%`,
-                            opacity: isLoaded ? sequenceOpacity : 0,
+                            opacity: sequenceOpacity,
                             transition: "opacity 0.3s ease",
                         }}
                     />
