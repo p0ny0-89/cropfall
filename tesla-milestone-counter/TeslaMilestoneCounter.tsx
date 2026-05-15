@@ -385,42 +385,45 @@ export default function TeslaMilestoneCounter({
     )
 }
 
-const SEGMENT_COUNT = 12
-const SEGMENT_GAP = 2
-const SEGMENT_RADIUS = 2
-
-function SegmentedBar({
+function DotMatrixBar({
     fillPercent,
-    height,
+    rows,
+    cols,
+    dotSize,
     accentColor,
     trackColor,
 }: {
     fillPercent: number
-    height: number
+    rows: number
+    cols: number
+    dotSize: number
     accentColor: string
     trackColor: string
 }) {
-    const filledSegments = Math.round((fillPercent / 100) * SEGMENT_COUNT)
+    const filledCols = Math.round((fillPercent / 100) * cols)
+    const gap = Math.max(1, dotSize * 0.35)
     return (
         <div
             style={{
-                display: "flex",
-                gap: SEGMENT_GAP,
-                width: "100%",
-                height,
+                display: "grid",
+                gridTemplateColumns: `repeat(${cols}, ${dotSize}px)`,
+                gridTemplateRows: `repeat(${rows}, ${dotSize}px)`,
+                gap,
+                width: "fit-content",
             }}
         >
-            {Array.from({ length: SEGMENT_COUNT }, (_, i) => {
-                const filled = i < filledSegments
+            {Array.from({ length: rows * cols }, (_, i) => {
+                const col = i % cols
+                const filled = col < filledCols
                 return (
                     <div
                         key={i}
                         style={{
-                            flex: 1,
-                            borderRadius: SEGMENT_RADIUS,
+                            width: dotSize,
+                            height: dotSize,
+                            borderRadius: 1,
                             backgroundColor: filled ? accentColor : trackColor,
-                            opacity: filled ? 0.8 : 1,
-                            transition: "background-color 0.4s ease",
+                            opacity: filled ? 0.85 : 1,
                         }}
                     />
                 )
@@ -531,9 +534,11 @@ function BentoGrid({
                         </div>
 
                         {!isFuture && (
-                            <SegmentedBar
+                            <DotMatrixBar
                                 fillPercent={Number(pct ?? 0)}
-                                height={6}
+                                rows={3}
+                                cols={20}
+                                dotSize={3}
                                 accentColor={accentColor}
                                 trackColor={`${textColor}0d`}
                             />
@@ -726,9 +731,11 @@ function DataRows({
 
                         <div style={{ flex: 1 }}>
                             {!isFuture ? (
-                                <SegmentedBar
+                                <DotMatrixBar
                                     fillPercent={barPct}
-                                    height={4}
+                                    rows={2}
+                                    cols={24}
+                                    dotSize={2}
                                     accentColor={accentColor}
                                     trackColor={`${textColor}0d`}
                                 />
@@ -737,7 +744,7 @@ function DataRows({
                                     style={{
                                         height: 4,
                                         background: `${textColor}06`,
-                                        borderRadius: SEGMENT_RADIUS,
+                                        borderRadius: 1,
                                     }}
                                 />
                             )}
