@@ -9,16 +9,11 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────
 
-type Anchor =
-    | "top-left"
-    | "top-right"
-    | "bottom-left"
-    | "bottom-right"
-    | "top-center"
-    | "bottom-center"
-    | "left-center"
-    | "right-center"
-    | "custom"
+interface Chapter {
+    label: string
+    startFrame: number
+    endFrame: number
+}
 
 interface Props {
     sourceMode: "pattern" | "manual"
@@ -37,21 +32,36 @@ interface Props {
     backgroundColor: string
     sequenceOpacity: number
     enablePreload: boolean
+    // Frame counter (debug)
     showFrameCounter: boolean
-    counterAnchor: Anchor
-    useUniformPadding: boolean
-    counterPadding: number
-    counterPaddingTop: number
-    counterPaddingRight: number
-    counterPaddingBottom: number
-    counterPaddingLeft: number
-    counterOffsetX: number
-    counterOffsetY: number
-    // @ts-ignore — ControlType.Font is undocumented
-    counterFont: any
-    counterFontSize: number
-    counterFontWeight: number
-    counterColor: string
+    // Progress overlay
+    showProgressOverlay: boolean
+    chapters: Chapter[]
+    progressMode: "chapter" | "overall"
+    progressOrientation: "vertical" | "horizontal"
+    progressPosition: "left" | "right" | "top" | "bottom" | "custom"
+    progressOffsetX: number
+    progressOffsetY: number
+    barLength: number
+    barThickness: number
+    progressGap: number
+    labelPlacement: "before" | "after"
+    labelRotation: number
+    reverseDirection: boolean
+    trackColor: string
+    progressColor: string
+    progressTextColor: string
+    activeTextColor: string
+    progressFontSize: number
+    progressLetterSpacing: number
+    progressTextTransform: "uppercase" | "none"
+    progressOpacity: number
+    progressBorderRadius: number
+    progressZIndex: number
+    // @ts-ignore
+    progressFont: any
+    progressFontWeight: number
+    // WebGL overlay
     enableOverlay: boolean
     streakIntensity: number
     streakSpeed: number
@@ -83,65 +93,6 @@ function buildFrameUrls(
     return urls
 }
 
-// ─── Anchor positioning ─────────────────────────────────────────────
-
-function getAnchorStyle(
-    anchor: Anchor,
-    pad: { top: number; right: number; bottom: number; left: number },
-    offsetX: number,
-    offsetY: number
-): React.CSSProperties {
-    const base: React.CSSProperties = {
-        position: "absolute",
-        pointerEvents: "none",
-        zIndex: 20,
-    }
-
-    // Vertical
-    switch (anchor) {
-        case "top-left":
-        case "top-center":
-        case "top-right":
-            base.top = pad.top + offsetY
-            break
-        case "bottom-left":
-        case "bottom-center":
-        case "bottom-right":
-            base.bottom = pad.bottom - offsetY
-            break
-        case "left-center":
-        case "right-center":
-        case "custom":
-            base.top = `calc(50% + ${offsetY}px)`
-            base.transform = "translateY(-50%)"
-            break
-    }
-
-    // Horizontal
-    switch (anchor) {
-        case "top-left":
-        case "bottom-left":
-        case "left-center":
-            base.left = pad.left + offsetX
-            break
-        case "top-right":
-        case "bottom-right":
-        case "right-center":
-            base.right = pad.right - offsetX
-            break
-        case "top-center":
-        case "bottom-center":
-            base.left = `calc(50% + ${offsetX}px)`
-            base.transform = (base.transform || "") + " translateX(-50%)"
-            break
-        case "custom":
-            base.left = pad.left + offsetX
-            break
-    }
-
-    return base
-}
-
 // ─── Component ───────────────────────────────────────────────────────
 
 /**
@@ -168,19 +119,31 @@ export default function ScrollImageSequence(props: Props) {
         sequenceOpacity = 1,
         enablePreload = true,
         showFrameCounter = false,
-        counterAnchor = "top-left" as Anchor,
-        useUniformPadding = true,
-        counterPadding = 12,
-        counterPaddingTop = 12,
-        counterPaddingRight = 12,
-        counterPaddingBottom = 12,
-        counterPaddingLeft = 12,
-        counterOffsetX = 0,
-        counterOffsetY = 0,
-        counterFont,
-        counterFontSize = 11,
-        counterFontWeight = 400,
-        counterColor = "#ffffff",
+        showProgressOverlay = false,
+        chapters = [],
+        progressMode = "chapter",
+        progressOrientation = "vertical",
+        progressPosition = "right",
+        progressOffsetX = 0,
+        progressOffsetY = 0,
+        barLength = 120,
+        barThickness = 1,
+        progressGap = 14,
+        labelPlacement = "after",
+        labelRotation = 0,
+        reverseDirection = false,
+        trackColor = "rgba(255,255,255,0.2)",
+        progressColor = "#ffffff",
+        progressTextColor = "rgba(255,255,255,0.5)",
+        activeTextColor = "#ffffff",
+        progressFontSize = 9,
+        progressLetterSpacing = 3,
+        progressTextTransform = "uppercase",
+        progressOpacity = 1,
+        progressBorderRadius = 0,
+        progressZIndex = 20,
+        progressFont,
+        progressFontWeight = 400,
         enableOverlay = false,
         streakIntensity = 0.4,
         streakSpeed = 0.8,
@@ -780,27 +743,267 @@ export default function ScrollImageSequence(props: Props) {
                     />
                 )}
 
-                {/* Frame counter */}
+                {/* Frame counter (debug) */}
                 {showFrameCounter && (
                     <div
                         style={{
-                            ...getAnchorStyle(
-                                counterAnchor,
-                                useUniformPadding
-                                    ? { top: counterPadding, right: counterPadding, bottom: counterPadding, left: counterPadding }
-                                    : { top: counterPaddingTop, right: counterPaddingRight, bottom: counterPaddingBottom, left: counterPaddingLeft },
-                                counterOffsetX,
-                                counterOffsetY
-                            ),
-                            fontFamily: counterFont?.fontFamily || "monospace",
-                            fontSize: counterFontSize,
-                            fontWeight: counterFontWeight,
-                            color: counterColor,
+                            position: "absolute",
+                            top: 12,
+                            left: 12,
+                            padding: "4px 10px",
+                            borderRadius: 4,
+                            background: "rgba(0,0,0,0.6)",
+                            color: "#fff",
+                            fontFamily: "monospace",
+                            fontSize: 11,
+                            pointerEvents: "none",
+                            zIndex: 20,
                         }}
                     >
                         {currentFrame} / {totalFrames - 1}
                     </div>
                 )}
+
+                {/* Chapter progress overlay */}
+                {showProgressOverlay && chapters.length > 0 && (
+                    <ChapterProgressOverlay
+                        currentFrame={currentFrame}
+                        totalFrames={totalFrames}
+                        chapters={chapters}
+                        progressMode={progressMode}
+                        orientation={progressOrientation}
+                        position={progressPosition}
+                        offsetX={progressOffsetX}
+                        offsetY={progressOffsetY}
+                        barLength={barLength}
+                        barThickness={barThickness}
+                        gap={progressGap}
+                        labelPlacement={labelPlacement}
+                        labelRotation={labelRotation}
+                        reverseDirection={reverseDirection}
+                        trackColor={trackColor}
+                        progressColor={progressColor}
+                        textColor={progressTextColor}
+                        activeTextColor={activeTextColor}
+                        fontSize={progressFontSize}
+                        letterSpacing={progressLetterSpacing}
+                        textTransform={progressTextTransform}
+                        opacity={progressOpacity}
+                        borderRadius={progressBorderRadius}
+                        zIndex={progressZIndex}
+                        font={progressFont}
+                        fontWeight={progressFontWeight}
+                    />
+                )}
+            </div>
+        </div>
+    )
+}
+
+// ─── Chapter progress overlay ───────────────────────────────────────
+
+function ChapterProgressOverlay({
+    currentFrame,
+    totalFrames,
+    chapters,
+    progressMode,
+    orientation,
+    position,
+    offsetX,
+    offsetY,
+    barLength,
+    barThickness,
+    gap,
+    labelPlacement,
+    labelRotation,
+    reverseDirection,
+    trackColor,
+    progressColor,
+    textColor,
+    activeTextColor,
+    fontSize,
+    letterSpacing,
+    textTransform,
+    opacity,
+    borderRadius,
+    zIndex,
+    font,
+    fontWeight,
+}: {
+    currentFrame: number
+    totalFrames: number
+    chapters: Chapter[]
+    progressMode: "chapter" | "overall"
+    orientation: "vertical" | "horizontal"
+    position: "left" | "right" | "top" | "bottom" | "custom"
+    offsetX: number
+    offsetY: number
+    barLength: number
+    barThickness: number
+    gap: number
+    labelPlacement: "before" | "after"
+    labelRotation: number
+    reverseDirection: boolean
+    trackColor: string
+    progressColor: string
+    textColor: string
+    activeTextColor: string
+    fontSize: number
+    letterSpacing: number
+    textTransform: "uppercase" | "none"
+    opacity: number
+    borderRadius: number
+    zIndex: number
+    font: any
+    fontWeight: number
+}) {
+    // Find active chapter
+    let activeChapter: Chapter | null = null
+    let activeIndex = -1
+    for (let i = 0; i < chapters.length; i++) {
+        const ch = chapters[i]
+        if (currentFrame >= ch.startFrame && currentFrame <= ch.endFrame) {
+            activeChapter = ch
+            activeIndex = i
+            break
+        }
+    }
+
+    // Fallback: nearest upcoming chapter, or first
+    if (!activeChapter && chapters.length > 0) {
+        let bestDist = Infinity
+        for (let i = 0; i < chapters.length; i++) {
+            const dist = chapters[i].startFrame - currentFrame
+            if (dist > 0 && dist < bestDist) {
+                bestDist = dist
+                activeChapter = chapters[i]
+                activeIndex = i
+            }
+        }
+        if (!activeChapter) {
+            activeChapter = chapters[0]
+            activeIndex = 0
+        }
+    }
+
+    // Compute progress
+    let progress = 0
+    if (progressMode === "overall") {
+        progress = totalFrames > 1 ? currentFrame / (totalFrames - 1) : 0
+    } else if (activeChapter) {
+        const range = activeChapter.endFrame - activeChapter.startFrame
+        if (range > 0) {
+            progress = (currentFrame - activeChapter.startFrame) / range
+        } else {
+            progress = currentFrame >= activeChapter.startFrame ? 1 : 0
+        }
+    }
+    progress = Math.max(0, Math.min(1, progress))
+    if (reverseDirection) progress = 1 - progress
+
+    const isVertical = orientation === "vertical"
+    const label = activeChapter?.label || ""
+
+    // Container positioning
+    const containerStyle: React.CSSProperties = {
+        position: "absolute",
+        display: "flex",
+        flexDirection: isVertical
+            ? labelPlacement === "before" ? "column" : "column-reverse"
+            : labelPlacement === "before" ? "row" : "row-reverse",
+        alignItems: "center",
+        gap,
+        opacity,
+        zIndex,
+        pointerEvents: "none",
+    }
+
+    // Position presets
+    switch (position) {
+        case "left":
+            containerStyle.left = 40 + offsetX
+            containerStyle.top = "50%"
+            containerStyle.transform = "translateY(-50%)"
+            break
+        case "right":
+            containerStyle.right = 40 - offsetX
+            containerStyle.top = "50%"
+            containerStyle.transform = "translateY(-50%)"
+            break
+        case "top":
+            containerStyle.top = 40 + offsetY
+            containerStyle.left = "50%"
+            containerStyle.transform = "translateX(-50%)"
+            break
+        case "bottom":
+            containerStyle.bottom = 40 - offsetY
+            containerStyle.left = "50%"
+            containerStyle.transform = "translateX(-50%)"
+            break
+        case "custom":
+            containerStyle.left = offsetX
+            containerStyle.top = offsetY
+            break
+    }
+
+    // Track dimensions
+    const trackW = isVertical ? barThickness : barLength
+    const trackH = isVertical ? barLength : barThickness
+
+    // Fill dimensions
+    const fillW = isVertical ? barThickness : barLength * progress
+    const fillH = isVertical ? barLength * progress : barThickness
+
+    // Fill alignment: vertical fills from bottom by default
+    const fillStyle: React.CSSProperties = {
+        position: "absolute",
+        background: progressColor,
+        borderRadius,
+        transition: "width 0.15s ease-out, height 0.15s ease-out",
+    }
+    if (isVertical) {
+        fillStyle.bottom = 0
+        fillStyle.left = 0
+        fillStyle.width = barThickness
+        fillStyle.height = fillH
+    } else {
+        fillStyle.top = 0
+        fillStyle.left = 0
+        fillStyle.width = fillW
+        fillStyle.height = barThickness
+    }
+
+    // Label style
+    const labelStyle: React.CSSProperties = {
+        fontFamily: font?.fontFamily || "system-ui, sans-serif",
+        fontSize,
+        fontWeight,
+        letterSpacing,
+        textTransform: textTransform as any,
+        color: activeIndex >= 0 ? activeTextColor : textColor,
+        whiteSpace: "nowrap",
+        transform: labelRotation ? `rotate(${labelRotation}deg)` : undefined,
+        transition: "color 0.3s ease",
+    }
+
+    return (
+        <div style={containerStyle}>
+            {/* Label */}
+            <span style={labelStyle}>{label}</span>
+
+            {/* Track + fill */}
+            <div
+                style={{
+                    position: "relative",
+                    width: trackW,
+                    height: trackH,
+                    background: trackColor,
+                    borderRadius,
+                    overflow: "hidden",
+                    flexShrink: 0,
+                }}
+            >
+                <div style={fillStyle} />
             </div>
         </div>
     )
@@ -968,97 +1171,78 @@ addPropertyControls(ScrollImageSequence, {
         defaultValue: true,
     },
 
-    // ── Frame counter ─────────────────────────────────────────────
+    // ── Frame counter (debug) ──────────────────────────────────────
     showFrameCounter: {
         type: ControlType.Boolean,
         title: "Frame Counter",
         defaultValue: false,
     },
-    counterAnchor: {
-        type: ControlType.Enum,
-        title: "Anchor",
-        options: [
-            "top-left",
-            "top-center",
-            "top-right",
-            "left-center",
-            "right-center",
-            "bottom-left",
-            "bottom-center",
-            "bottom-right",
-            "custom",
-        ],
-        optionTitles: [
-            "Top Left",
-            "Top Center",
-            "Top Right",
-            "Left Center",
-            "Right Center",
-            "Bottom Left",
-            "Bottom Center",
-            "Bottom Right",
-            "Custom",
-        ],
-        defaultValue: "top-left",
-        hidden: (props) => !props.showFrameCounter,
-    },
-    useUniformPadding: {
+
+    // ── Chapter progress overlay ────────────────────────────────────
+    showProgressOverlay: {
         type: ControlType.Boolean,
-        title: "Uniform Padding",
-        defaultValue: true,
-        hidden: (props) => !props.showFrameCounter,
+        title: "Progress Overlay",
+        defaultValue: false,
     },
-    counterPadding: {
-        type: ControlType.Number,
-        title: "Padding",
-        defaultValue: 12,
-        min: 0,
-        max: 200,
-        step: 1,
-        unit: "px",
-        hidden: (props) => !props.showFrameCounter || !props.useUniformPadding,
+    chapters: {
+        type: ControlType.Array,
+        title: "Chapters",
+        control: {
+            type: ControlType.Object,
+            controls: {
+                label: {
+                    type: ControlType.String,
+                    title: "Label",
+                    defaultValue: "CHAPTER",
+                },
+                startFrame: {
+                    type: ControlType.Number,
+                    title: "Start",
+                    defaultValue: 0,
+                    min: 0,
+                    step: 1,
+                },
+                endFrame: {
+                    type: ControlType.Number,
+                    title: "End",
+                    defaultValue: 100,
+                    min: 0,
+                    step: 1,
+                },
+            },
+        },
+        defaultValue: [
+            { label: "MEMORY LANE", startFrame: 0, endFrame: 100 },
+        ],
+        hidden: (props) => !props.showProgressOverlay,
     },
-    counterPaddingTop: {
-        type: ControlType.Number,
-        title: "Pad Top",
-        defaultValue: 12,
-        min: 0,
-        max: 200,
-        step: 1,
-        unit: "px",
-        hidden: (props) => !props.showFrameCounter || props.useUniformPadding,
+    progressMode: {
+        type: ControlType.Enum,
+        title: "Progress Mode",
+        options: ["chapter", "overall"],
+        optionTitles: ["Chapter", "Overall"],
+        defaultValue: "chapter",
+        hidden: (props) => !props.showProgressOverlay,
     },
-    counterPaddingRight: {
-        type: ControlType.Number,
-        title: "Pad Right",
-        defaultValue: 12,
-        min: 0,
-        max: 200,
-        step: 1,
-        unit: "px",
-        hidden: (props) => !props.showFrameCounter || props.useUniformPadding,
+
+    // ── Progress layout ─────────────────────────────────────────────
+    progressOrientation: {
+        type: ControlType.Enum,
+        title: "Orientation",
+        options: ["vertical", "horizontal"],
+        optionTitles: ["Vertical", "Horizontal"],
+        defaultValue: "vertical",
+        hidden: (props) => !props.showProgressOverlay,
     },
-    counterPaddingBottom: {
-        type: ControlType.Number,
-        title: "Pad Bottom",
-        defaultValue: 12,
-        min: 0,
-        max: 200,
-        step: 1,
-        unit: "px",
-        hidden: (props) => !props.showFrameCounter || props.useUniformPadding,
+    progressPosition: {
+        type: ControlType.Enum,
+        title: "Position",
+        options: ["left", "right", "top", "bottom", "custom"],
+        optionTitles: ["Left", "Right", "Top", "Bottom", "Custom"],
+        defaultValue: "right",
+        hidden: (props) => !props.showProgressOverlay,
     },
-    counterPaddingLeft: {
-        type: ControlType.Number,
-        title: "Pad Left",
-        defaultValue: 12,
-        min: 0,
-        max: 200,
-        step: 1,
-        unit: "px",
-        hidden: (props) => !props.showFrameCounter || props.useUniformPadding,
-    },
-    counterOffsetX: {
+    progressOffsetX: {
         type: ControlType.Number,
         title: "Offset X",
         defaultValue: 0,
@@ -1066,9 +1250,9 @@ addPropertyControls(ScrollImageSequence, {
         max: 500,
         step: 1,
         unit: "px",
-        hidden: (props) => !props.showFrameCounter,
+        hidden: (props) => !props.showProgressOverlay,
     },
-    counterOffsetY: {
+    progressOffsetY: {
         type: ControlType.Number,
         title: "Offset Y",
         defaultValue: 0,
@@ -1076,26 +1260,106 @@ addPropertyControls(ScrollImageSequence, {
         max: 500,
         step: 1,
         unit: "px",
-        hidden: (props) => !props.showFrameCounter,
+        hidden: (props) => !props.showProgressOverlay,
     },
-    // @ts-ignore — ControlType.Font is undocumented in Framer
-    counterFont: {
+    barLength: {
+        type: ControlType.Number,
+        title: "Bar Length",
+        defaultValue: 120,
+        min: 20,
+        max: 600,
+        step: 1,
+        unit: "px",
+        hidden: (props) => !props.showProgressOverlay,
+    },
+    barThickness: {
+        type: ControlType.Number,
+        title: "Bar Thickness",
+        defaultValue: 1,
+        min: 1,
+        max: 20,
+        step: 1,
+        unit: "px",
+        hidden: (props) => !props.showProgressOverlay,
+    },
+    progressGap: {
+        type: ControlType.Number,
+        title: "Gap",
+        defaultValue: 14,
+        min: 0,
+        max: 60,
+        step: 1,
+        unit: "px",
+        hidden: (props) => !props.showProgressOverlay,
+    },
+    labelPlacement: {
+        type: ControlType.Enum,
+        title: "Label Side",
+        options: ["before", "after"],
+        optionTitles: ["Before", "After"],
+        defaultValue: "after",
+        hidden: (props) => !props.showProgressOverlay,
+    },
+    labelRotation: {
+        type: ControlType.Number,
+        title: "Label Rotation",
+        defaultValue: 0,
+        min: -180,
+        max: 180,
+        step: 1,
+        unit: "deg",
+        hidden: (props) => !props.showProgressOverlay,
+    },
+    reverseDirection: {
+        type: ControlType.Boolean,
+        title: "Reverse Direction",
+        defaultValue: false,
+        hidden: (props) => !props.showProgressOverlay,
+    },
+
+    // ── Progress style ──────────────────────────────────────────────
+    trackColor: {
+        type: ControlType.Color,
+        title: "Track Color",
+        defaultValue: "rgba(255,255,255,0.2)",
+        hidden: (props) => !props.showProgressOverlay,
+    },
+    progressColor: {
+        type: ControlType.Color,
+        title: "Fill Color",
+        defaultValue: "#ffffff",
+        hidden: (props) => !props.showProgressOverlay,
+    },
+    progressTextColor: {
+        type: ControlType.Color,
+        title: "Text Color",
+        defaultValue: "rgba(255,255,255,0.5)",
+        hidden: (props) => !props.showProgressOverlay,
+    },
+    activeTextColor: {
+        type: ControlType.Color,
+        title: "Active Text",
+        defaultValue: "#ffffff",
+        hidden: (props) => !props.showProgressOverlay,
+    },
+    // @ts-ignore
+    progressFont: {
         // @ts-ignore
         type: ControlType.Font,
         title: "Font",
-        hidden: (props: Props) => !props.showFrameCounter,
+        hidden: (props: Props) => !props.showProgressOverlay,
     },
-    counterFontSize: {
+    progressFontSize: {
         type: ControlType.Number,
         title: "Font Size",
-        defaultValue: 11,
+        defaultValue: 9,
         min: 6,
-        max: 72,
+        max: 48,
         step: 1,
         unit: "px",
-        hidden: (props) => !props.showFrameCounter,
+        hidden: (props) => !props.showProgressOverlay,
     },
-    counterFontWeight: {
+    progressFontWeight: {
         type: ControlType.Enum,
         title: "Weight",
         options: [100, 200, 300, 400, 500, 600, 700, 800, 900],
@@ -1111,13 +1375,53 @@ addPropertyControls(ScrollImageSequence, {
             "Black",
         ],
         defaultValue: 400,
-        hidden: (props) => !props.showFrameCounter,
+        hidden: (props) => !props.showProgressOverlay,
     },
-    counterColor: {
-        type: ControlType.Color,
-        title: "Text Color",
-        defaultValue: "#ffffff",
-        hidden: (props) => !props.showFrameCounter,
+    progressLetterSpacing: {
+        type: ControlType.Number,
+        title: "Letter Spacing",
+        defaultValue: 3,
+        min: 0,
+        max: 20,
+        step: 0.5,
+        unit: "px",
+        hidden: (props) => !props.showProgressOverlay,
+    },
+    progressTextTransform: {
+        type: ControlType.Enum,
+        title: "Transform",
+        options: ["uppercase", "none"],
+        optionTitles: ["Uppercase", "None"],
+        defaultValue: "uppercase",
+        hidden: (props) => !props.showProgressOverlay,
+    },
+    progressOpacity: {
+        type: ControlType.Number,
+        title: "Overlay Opacity",
+        defaultValue: 1,
+        min: 0,
+        max: 1,
+        step: 0.05,
+        hidden: (props) => !props.showProgressOverlay,
+    },
+    progressBorderRadius: {
+        type: ControlType.Number,
+        title: "Border Radius",
+        defaultValue: 0,
+        min: 0,
+        max: 10,
+        step: 1,
+        unit: "px",
+        hidden: (props) => !props.showProgressOverlay,
+    },
+    progressZIndex: {
+        type: ControlType.Number,
+        title: "Z-Index",
+        defaultValue: 20,
+        min: 1,
+        max: 100,
+        step: 1,
+        hidden: (props) => !props.showProgressOverlay,
     },
 
     // ── Dynamic overlay ───────────────────────────────────────────
