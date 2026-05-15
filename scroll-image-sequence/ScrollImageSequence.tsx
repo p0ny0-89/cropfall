@@ -169,6 +169,7 @@ export default function ScrollImageSequence(props: Props) {
     const [loadProgress, setLoadProgress] = useState(0)
     const [isLoaded, setIsLoaded] = useState(false)
     const [currentFrame, setCurrentFrame] = useState(0)
+    const [imgError, setImgError] = useState(false)
 
     const isCanvas = RenderTarget.current() === RenderTarget.canvas
 
@@ -721,18 +722,20 @@ export default function ScrollImageSequence(props: Props) {
                 )}
 
                 {/* Current frame — native <img> for best scaling quality */}
-                {frameUrls[displayFrame] && (
+                {frameUrls[displayFrame] && !imgError && (
                     <img
                         src={frameUrls[displayFrame]}
                         decoding="sync"
                         alt=""
+                        onError={() => setImgError(true)}
+                        onLoad={() => setImgError(false)}
                         style={{
                             display: "block",
                             width: "100%",
                             height: "100%",
                             objectFit: objectFit,
                             objectPosition: `${objectPositionX}% ${objectPositionY}%`,
-                            opacity: isLoaded ? sequenceOpacity : 0,
+                            opacity: isLoaded || isCanvas ? sequenceOpacity : 0,
                             transition: "opacity 0.3s ease",
                         }}
                     />
