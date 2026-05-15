@@ -280,50 +280,45 @@ export default function ScrollCard3D(props: Props) {
 
     // ── Render ───────────────────────────────────────────────────────
 
-    // Outer wrapper fills the parent (tall scroll container).
-    // Inner sticky div stays pinned in the viewport while scrolling.
+    // Canvas: relative positioning for preview inside the Framer frame.
+    // Live: fixed to viewport so the card stays centered regardless of
+    //       how the parent frame is sized or positioned in the page.
     return (
         <div
             ref={containerRef}
             style={{
-                position: "absolute",
-                inset: 0,
+                position: isCanvas ? "relative" : "fixed",
+                top: 0,
+                left: 0,
+                width: isCanvas ? "100%" : "100vw",
+                height: isCanvas ? "100%" : "100vh",
                 pointerEvents: "none",
+                overflow: "visible",
+                perspective,
+                perspectiveOrigin: `${perspectiveOriginX}% ${perspectiveOriginY}%`,
+                zIndex: 10,
             }}
         >
-            {/* Sticky viewport — stays fixed while parent scrolls */}
             <div
                 style={{
-                    position: isCanvas ? "relative" : "sticky",
-                    top: 0,
-                    width: "100%",
-                    height: "100vh",
-                    overflow: "visible",
-                    perspective,
-                    perspectiveOrigin: `${perspectiveOriginX}% ${perspectiveOriginY}%`,
+                    position: "absolute",
+                    left: "50%",
+                    top: "50%",
+                    transform: `
+                        translate(-50%, -50%)
+                        translate3d(${x}px, ${y}px, 0px)
+                        rotateX(${rotX}deg)
+                        rotateY(${rotY}deg)
+                        rotateZ(${rotZ}deg)
+                        scale(${scale})
+                    `,
+                    opacity,
+                    willChange: "transform, opacity",
+                    pointerEvents: opacity > 0.1 ? "auto" : "none",
+                    transformStyle: "preserve-3d",
                 }}
             >
-                <div
-                    style={{
-                        position: "absolute",
-                        left: "50%",
-                        top: "50%",
-                        transform: `
-                            translate(-50%, -50%)
-                            translate3d(${x}px, ${y}px, 0px)
-                            rotateX(${rotX}deg)
-                            rotateY(${rotY}deg)
-                            rotateZ(${rotZ}deg)
-                            scale(${scale})
-                        `,
-                        opacity,
-                        willChange: "transform, opacity",
-                        pointerEvents: opacity > 0.1 ? "auto" : "none",
-                        transformStyle: "preserve-3d",
-                    }}
-                >
-                    {children}
-                </div>
+                {children}
             </div>
         </div>
     )
