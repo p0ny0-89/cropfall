@@ -674,8 +674,8 @@ export default function ScrollImageSequence(props: Props) {
             style={{
                 position: "relative",
                 width: "100%",
-                height: `${scrollHeightVh}vh`,
-                minHeight: `${scrollHeightVh}vh`,
+                height: "100%",
+                minHeight: "100%",
             }}
         >
             {/* Sticky viewport */}
