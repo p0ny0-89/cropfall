@@ -7,8 +7,6 @@ interface Props {
     children: React.ReactNode[]
     // Timing
     totalFrames: number
-    scrollHeightVh: number
-    stickyTopOffset: number
     enterFrame: number
     peakFrame: number
     exitFrame: number
@@ -88,8 +86,6 @@ export default function ScrollCard3D(props: Props) {
     const {
         children,
         totalFrames = 400,
-        scrollHeightVh = 400,
-        stickyTopOffset = 0,
         enterFrame = 60,
         peakFrame = 90,
         exitFrame = 120,
@@ -127,6 +123,22 @@ export default function ScrollCard3D(props: Props) {
     const rafRef = useRef<number>(0)
     const [currentFrame, setCurrentFrame] = useState(0)
 
+    // ── Find the scroll container ──────────────────────────────────
+    // Walk up the DOM to find the tall ancestor that drives scroll
+    // progress (its height >> viewport). This is the same container
+    // that ScrollImageSequence uses for its scroll math.
+
+    function findScrollContainer(el: HTMLElement): HTMLElement | null {
+        let node: HTMLElement | null = el
+        while (node) {
+            if (node.offsetHeight > window.innerHeight * 1.5) {
+                return node
+            }
+            node = node.parentElement
+        }
+        return null
+    }
+
     // ── Scroll handler (same math as ScrollImageSequence) ───────────
 
     useEffect(() => {
@@ -137,17 +149,14 @@ export default function ScrollCard3D(props: Props) {
                 const el = containerRef.current
                 if (!el) return
 
-                // Walk up to find the scroll container (matching scrollHeightVh)
-                const rect = el.getBoundingClientRect()
-                const parent = el.parentElement
-                if (!parent) return
+                const scrollEl = findScrollContainer(el)
+                if (!scrollEl) return
 
-                // Use the parent's bounding rect for scroll calculation
-                const parentRect = parent.getBoundingClientRect()
-                const scrollable = parentRect.height - window.innerHeight
+                const rect = scrollEl.getBoundingClientRect()
+                const scrollable = rect.height - window.innerHeight
                 if (scrollable <= 0) return
 
-                let rawProgress = -parentRect.top / scrollable
+                let rawProgress = -rect.top / scrollable
                 rawProgress = Math.max(0, Math.min(1, rawProgress))
 
                 const frame = Math.round(rawProgress * (totalFrames - 1))
@@ -162,7 +171,7 @@ export default function ScrollCard3D(props: Props) {
             window.removeEventListener("scroll", onScroll)
             if (rafRef.current) cancelAnimationFrame(rafRef.current)
         }
-    }, [totalFrames, scrollHeightVh])
+    }, [totalFrames])
 
     // ── Compute interpolated values ─────────────────────────────────
 
@@ -306,24 +315,6 @@ addPropertyControls(ScrollCard3D, {
         defaultValue: 400,
         min: 1,
         step: 1,
-    },
-    scrollHeightVh: {
-        type: ControlType.Number,
-        title: "Scroll Height",
-        defaultValue: 400,
-        min: 100,
-        max: 1000,
-        step: 50,
-        unit: "vh",
-    },
-    stickyTopOffset: {
-        type: ControlType.Number,
-        title: "Sticky Offset",
-        defaultValue: 0,
-        min: 0,
-        max: 200,
-        step: 1,
-        unit: "px",
     },
     enterFrame: {
         type: ControlType.Number,
