@@ -983,7 +983,10 @@ function ChapterProgressOverlay({
         fillStyle.height = barThickness
     }
 
-    // Label style
+    // Use writing-mode for vertical text so the layout box matches
+    // the visual size (no rotate transform needed).
+    const useWritingMode = isVertical && labelRotation === 0
+
     const labelStyle: React.CSSProperties = {
         fontFamily: font?.fontFamily || "system-ui, sans-serif",
         fontSize,
@@ -992,14 +995,73 @@ function ChapterProgressOverlay({
         textTransform: textTransform as any,
         color: activeIndex >= 0 ? activeTextColor : textColor,
         whiteSpace: "nowrap",
-        transform: labelRotation ? `rotate(${labelRotation}deg)` : undefined,
         transition: "color 0.3s ease",
     }
 
+    if (useWritingMode) {
+        labelStyle.writingMode = "vertical-lr"
+        labelStyle.textOrientation = "upright"
+    } else if (labelRotation) {
+        labelStyle.transform = `rotate(${labelRotation}deg)`
+    }
+
+    // Anchor the bar in a fixed position; float the label relative
+    // to it so that changing label length never shifts the bar.
+    // The wrapper uses the bar as the sizing anchor and the label
+    // is positioned absolutely so it doesn't affect layout.
+
+    // Determine label offset direction from bar
+    const labelBefore = labelPlacement === "before"
+
+    // For vertical orientation: label is above/below the bar
+    // For horizontal: label is left/right of the bar
+    const labelAbsStyle: React.CSSProperties = {
+        ...labelStyle,
+        position: "absolute",
+    }
+
+    if (isVertical) {
+        // Center horizontally on the bar
+        labelAbsStyle.left = "50%"
+        labelAbsStyle.transform = labelRotation
+            ? `translateX(-50%) rotate(${labelRotation}deg)`
+            : "translateX(-50%)"
+        if (labelBefore) {
+            // Label above bar
+            labelAbsStyle.bottom = `calc(100% + ${gap}px)`
+        } else {
+            // Label below bar
+            labelAbsStyle.top = `calc(100% + ${gap}px)`
+        }
+    } else {
+        // Center vertically on the bar
+        labelAbsStyle.top = "50%"
+        labelAbsStyle.transform = labelRotation
+            ? `translateY(-50%) rotate(${labelRotation}deg)`
+            : "translateY(-50%)"
+        if (labelBefore) {
+            labelAbsStyle.right = `calc(100% + ${gap}px)`
+        } else {
+            labelAbsStyle.left = `calc(100% + ${gap}px)`
+        }
+    }
+
+    // Wrapper positions via the original presets but sizes to the bar only
+    const wrapperStyle: React.CSSProperties = {
+        ...containerStyle,
+        display: "block",
+        width: trackW,
+        height: trackH,
+    }
+    // Remove flex properties (no longer flex layout)
+    delete (wrapperStyle as any).flexDirection
+    delete (wrapperStyle as any).alignItems
+    delete (wrapperStyle as any).gap
+
     return (
-        <div style={containerStyle}>
-            {/* Label */}
-            <span style={labelStyle}>{label}</span>
+        <div style={wrapperStyle}>
+            {/* Label — absolutely positioned so it doesn't shift the bar */}
+            <span style={labelAbsStyle}>{label}</span>
 
             {/* Track + fill */}
             <div
@@ -1010,7 +1072,6 @@ function ChapterProgressOverlay({
                     background: trackColor,
                     borderRadius,
                     overflow: "hidden",
-                    flexShrink: 0,
                 }}
             >
                 <div style={fillStyle} />
