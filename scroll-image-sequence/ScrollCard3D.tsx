@@ -127,21 +127,17 @@ export default function ScrollCard3D(props: Props) {
     const rafRef = useRef<number>(0)
     const [currentFrame, setCurrentFrame] = useState(0)
 
-    // ── Find the scroll container ──────────────────────────────────
-    // Walk up the DOM to find the tall ancestor that drives scroll
-    // progress (its height >> viewport). This is the same container
-    // that ScrollImageSequence uses for its scroll math.
+    // ── Find the ScrollImageSequence container ────────────────────
+    // Look for the [data-scroll-sequence] element that ScrollImageSequence
+    // stamps on its outer div. This guarantees both components measure
+    // scroll progress from the exact same element.
 
-    function findScrollContainer(el: HTMLElement): HTMLElement | null {
-        let node: HTMLElement | null = el
-        while (node) {
-            if (node.offsetHeight > window.innerHeight * 1.5) {
-                return node
-            }
-            node = node.parentElement
-        }
-        return null
-    }
+    const scrollElRef = useRef<HTMLElement | null>(null)
+
+    useEffect(() => {
+        scrollElRef.current =
+            document.querySelector("[data-scroll-sequence]") as HTMLElement | null
+    }, [])
 
     // ── Scroll handler (same math as ScrollImageSequence) ───────────
 
@@ -150,11 +146,12 @@ export default function ScrollCard3D(props: Props) {
 
         function onScroll() {
             rafRef.current = requestAnimationFrame(() => {
-                const el = containerRef.current
-                if (!el) return
+                const scrollEl =
+                    scrollElRef.current ||
+                    (document.querySelector("[data-scroll-sequence]") as HTMLElement | null)
 
-                const scrollEl = findScrollContainer(el)
                 if (!scrollEl) return
+                scrollElRef.current = scrollEl
 
                 const rect = scrollEl.getBoundingClientRect()
                 const scrollable = rect.height - window.innerHeight

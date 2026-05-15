@@ -670,6 +670,7 @@ export default function ScrollImageSequence(props: Props) {
     return (
         <div
             ref={containerRef}
+            data-scroll-sequence
             style={{
                 position: "relative",
                 width: "100%",
