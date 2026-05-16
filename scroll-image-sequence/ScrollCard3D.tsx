@@ -132,10 +132,10 @@ export default function ScrollCard3D(props: Props) {
 
     // ── Find the scroll reference element ─────────────────────────
     // Priority:
-    // 1. User-specified scrollSelector (CSS selector)
-    // 2. ScrollImageSequence's [data-scroll-sequence] marker
-    // 3. Walk up DOM to find nearest tall ancestor (> 1.5× viewport)
-    // 4. document.documentElement (full-page scroll)
+    // 1. User-specified scrollSelector (CSS selector) — use this to
+    //    explicitly pair with a ScrollImageSequence or any element
+    // 2. Walk up DOM to find nearest tall ancestor (> 1.5× viewport)
+    // 3. document.documentElement (full-page scroll)
 
     const scrollElRef = useRef<HTMLElement | null>(null)
 
@@ -144,8 +144,6 @@ export default function ScrollCard3D(props: Props) {
             const el = document.querySelector(scrollSelector) as HTMLElement | null
             if (el) return el
         }
-        const seq = document.querySelector("[data-scroll-sequence]") as HTMLElement | null
-        if (seq) return seq
         let node: HTMLElement | null = containerRef.current
         while (node && node !== document.documentElement) {
             if (node.scrollHeight > window.innerHeight * 1.5) {
@@ -194,10 +192,9 @@ export default function ScrollCard3D(props: Props) {
         scrollElRef.current = null
     }, [scrollSelector])
 
-    // Detect if paired with a ScrollImageSequence (fixed viewport)
-    // vs standalone in a section (relative positioning)
-    const isPairedWithSequence = !isCanvas && !scrollSelector &&
-        !!document.querySelector("[data-scroll-sequence]")
+    // Fixed viewport only when user explicitly targets the sequence
+    const isPairedWithSequence = !isCanvas &&
+        scrollSelector === "[data-scroll-sequence]"
 
     // ── Compute interpolated values ─────────────────────────────────
 
@@ -461,7 +458,7 @@ addPropertyControls(ScrollCard3D, {
         defaultValue: "",
         placeholder: "e.g. #my-section",
         description:
-            "CSS selector for the scroll container. Leave empty to auto-detect (uses ScrollImageSequence if present, otherwise nearest tall ancestor).",
+            "CSS selector for the scroll container. Leave empty to auto-detect nearest tall ancestor. Set to [data-scroll-sequence] to pair with a ScrollImageSequence.",
     },
 
     // ── Perspective ─────────────────────────────────────────────────
