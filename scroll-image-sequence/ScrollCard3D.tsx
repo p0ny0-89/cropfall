@@ -40,6 +40,8 @@ interface Props {
     endOpacity: number
     // Easing
     easing: "linear" | "ease-in" | "ease-out" | "ease-in-out"
+    // Scroll reference
+    scrollSelector: string
     // Canvas preview
     previewKeyframe: "hidden" | "start" | "peak" | "end"
 }
@@ -119,6 +121,7 @@ export default function ScrollCard3D(props: Props) {
         endRotateZ = 3,
         endOpacity = 0,
         easing = "ease-in-out",
+        scrollSelector = "",
         previewKeyframe = "peak",
     } = props
 
@@ -128,33 +131,34 @@ export default function ScrollCard3D(props: Props) {
     const [currentFrame, setCurrentFrame] = useState(0)
 
     // ── Find the scroll reference element ─────────────────────────
-    // 1. If a ScrollImageSequence exists, use its [data-scroll-sequence]
-    //    container so both components share identical progress.
-    // 2. Otherwise, walk up the DOM to find the nearest tall ancestor
-    //    (height > 1.5× viewport) — this lets ScrollCard3D work
-    //    standalone in any tall section.
+    // Priority order:
+    // 1. User-specified scrollSelector (CSS selector string)
+    // 2. ScrollImageSequence's [data-scroll-sequence] marker
+    // 3. Any ancestor taller than 1.5× the viewport
+    // 4. document.documentElement (full-page scroll fallback)
 
     const scrollElRef = useRef<HTMLElement | null>(null)
 
-    function findTallAncestor(el: HTMLElement): HTMLElement | null {
-        let node: HTMLElement | null = el.parentElement
-        while (node) {
-            if (node.offsetHeight > window.innerHeight * 1.5) {
+    function discoverScrollEl(): HTMLElement | null {
+        // 1. User-supplied selector
+        if (scrollSelector) {
+            const el = document.querySelector(scrollSelector) as HTMLElement | null
+            if (el) return el
+        }
+        // 2. Paired ScrollImageSequence
+        const seq = document.querySelector("[data-scroll-sequence]") as HTMLElement | null
+        if (seq) return seq
+        // 3. Walk up from our DOM node to find a tall ancestor
+        let node: HTMLElement | null = containerRef.current?.parentElement || null
+        while (node && node !== document.documentElement) {
+            if (node.scrollHeight > window.innerHeight * 1.5) {
                 return node
             }
             node = node.parentElement
         }
-        return null
+        // 4. Full-page fallback
+        return document.documentElement
     }
-
-    useEffect(() => {
-        const seq = document.querySelector("[data-scroll-sequence]") as HTMLElement | null
-        if (seq) {
-            scrollElRef.current = seq
-        } else if (containerRef.current) {
-            scrollElRef.current = findTallAncestor(containerRef.current)
-        }
-    }, [])
 
     // ── Scroll handler ─────────────────────────────────────────────
 
@@ -163,15 +167,11 @@ export default function ScrollCard3D(props: Props) {
 
         function onScroll() {
             rafRef.current = requestAnimationFrame(() => {
-                // Try cached ref first, then re-discover
-                let scrollEl = scrollElRef.current
-                if (!scrollEl) {
-                    scrollEl =
-                        (document.querySelector("[data-scroll-sequence]") as HTMLElement | null) ||
-                        (containerRef.current ? findTallAncestor(containerRef.current) : null)
-                    if (!scrollEl) return
-                    scrollElRef.current = scrollEl
+                if (!scrollElRef.current) {
+                    scrollElRef.current = discoverScrollEl()
                 }
+                const scrollEl = scrollElRef.current
+                if (!scrollEl) return
 
                 const rect = scrollEl.getBoundingClientRect()
                 const scrollable = rect.height - window.innerHeight
@@ -192,7 +192,7 @@ export default function ScrollCard3D(props: Props) {
             window.removeEventListener("scroll", onScroll)
             if (rafRef.current) cancelAnimationFrame(rafRef.current)
         }
-    }, [totalFrames])
+    }, [totalFrames, scrollSelector])
 
     // ── Compute interpolated values ─────────────────────────────────
 
@@ -391,6 +391,14 @@ addPropertyControls(ScrollCard3D, {
         options: ["hidden", "start", "peak", "end"],
         optionTitles: ["Hidden", "Start", "Peak", "End"],
         defaultValue: "peak",
+    },
+    scrollSelector: {
+        type: ControlType.String,
+        title: "Scroll Selector",
+        defaultValue: "",
+        placeholder: "e.g. #my-section",
+        description:
+            "CSS selector for the scroll container. Leave empty to auto-detect (uses ScrollImageSequence if present, otherwise nearest tall ancestor).",
     },
 
     // ── Perspective ─────────────────────────────────────────────────
