@@ -127,31 +127,51 @@ export default function ScrollCard3D(props: Props) {
     const rafRef = useRef<number>(0)
     const [currentFrame, setCurrentFrame] = useState(0)
 
-    // ── Find the ScrollImageSequence container ────────────────────
-    // Look for the [data-scroll-sequence] element that ScrollImageSequence
-    // stamps on its outer div. This guarantees both components measure
-    // scroll progress from the exact same element.
+    // ── Find the scroll reference element ─────────────────────────
+    // 1. If a ScrollImageSequence exists, use its [data-scroll-sequence]
+    //    container so both components share identical progress.
+    // 2. Otherwise, walk up the DOM to find the nearest tall ancestor
+    //    (height > 1.5× viewport) — this lets ScrollCard3D work
+    //    standalone in any tall section.
 
     const scrollElRef = useRef<HTMLElement | null>(null)
 
+    function findTallAncestor(el: HTMLElement): HTMLElement | null {
+        let node: HTMLElement | null = el.parentElement
+        while (node) {
+            if (node.offsetHeight > window.innerHeight * 1.5) {
+                return node
+            }
+            node = node.parentElement
+        }
+        return null
+    }
+
     useEffect(() => {
-        scrollElRef.current =
-            document.querySelector("[data-scroll-sequence]") as HTMLElement | null
+        const seq = document.querySelector("[data-scroll-sequence]") as HTMLElement | null
+        if (seq) {
+            scrollElRef.current = seq
+        } else if (containerRef.current) {
+            scrollElRef.current = findTallAncestor(containerRef.current)
+        }
     }, [])
 
-    // ── Scroll handler (same math as ScrollImageSequence) ───────────
+    // ── Scroll handler ─────────────────────────────────────────────
 
     useEffect(() => {
         if (totalFrames === 0) return
 
         function onScroll() {
             rafRef.current = requestAnimationFrame(() => {
-                const scrollEl =
-                    scrollElRef.current ||
-                    (document.querySelector("[data-scroll-sequence]") as HTMLElement | null)
-
-                if (!scrollEl) return
-                scrollElRef.current = scrollEl
+                // Try cached ref first, then re-discover
+                let scrollEl = scrollElRef.current
+                if (!scrollEl) {
+                    scrollEl =
+                        (document.querySelector("[data-scroll-sequence]") as HTMLElement | null) ||
+                        (containerRef.current ? findTallAncestor(containerRef.current) : null)
+                    if (!scrollEl) return
+                    scrollElRef.current = scrollEl
+                }
 
                 const rect = scrollEl.getBoundingClientRect()
                 const scrollable = rect.height - window.innerHeight
