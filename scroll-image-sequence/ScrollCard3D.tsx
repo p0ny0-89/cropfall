@@ -194,6 +194,11 @@ export default function ScrollCard3D(props: Props) {
         scrollElRef.current = null
     }, [scrollSelector])
 
+    // Detect if paired with a ScrollImageSequence (fixed viewport)
+    // vs standalone in a section (relative positioning)
+    const isPairedWithSequence = !isCanvas && !scrollSelector &&
+        !!document.querySelector("[data-scroll-sequence]")
+
     // ── Compute interpolated values ─────────────────────────────────
 
     let x: number,
@@ -297,18 +302,23 @@ export default function ScrollCard3D(props: Props) {
 
     // ── Render ───────────────────────────────────────────────────────
 
-    // Canvas: relative positioning for preview inside the Framer frame.
-    // Live: fixed to viewport so the card stays centered regardless of
-    //       how the parent frame is sized or positioned in the page.
+    // Paired with ScrollImageSequence: fixed to viewport so the card
+    //   overlays the sticky image sequence correctly.
+    // Standalone: relative/absolute within the parent section so the
+    //   card stays inside its container and scrolls with it.
+    // Canvas: always relative for preview.
+
+    const useFixed = !isCanvas && isPairedWithSequence
+
     return (
         <div
             ref={containerRef}
             style={{
-                position: isCanvas ? "relative" : "fixed",
+                position: useFixed ? "fixed" : (isCanvas ? "relative" : "absolute"),
                 top: 0,
                 left: 0,
-                width: isCanvas ? "100%" : "100vw",
-                height: isCanvas ? "100%" : "100vh",
+                width: useFixed ? "100vw" : "100%",
+                height: useFixed ? "100vh" : "100%",
                 pointerEvents: "none",
                 overflow: "visible",
                 perspective,
