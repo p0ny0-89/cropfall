@@ -40,6 +40,8 @@ interface Props {
     endOpacity: number
     // Easing
     easing: "linear" | "ease-in" | "ease-out" | "ease-in-out"
+    // Scroll reference
+    scrollSelector: string
     // Canvas preview
     previewKeyframe: "hidden" | "start" | "peak" | "end"
 }
@@ -119,6 +121,7 @@ export default function ScrollCard3D(props: Props) {
         endRotateZ = 3,
         endOpacity = 0,
         easing = "ease-in-out",
+        scrollSelector = "",
         previewKeyframe = "peak",
     } = props
 
@@ -127,31 +130,43 @@ export default function ScrollCard3D(props: Props) {
     const rafRef = useRef<number>(0)
     const [currentFrame, setCurrentFrame] = useState(0)
 
-    // ── Find the ScrollImageSequence container ────────────────────
-    // Look for the [data-scroll-sequence] element that ScrollImageSequence
-    // stamps on its outer div. This guarantees both components measure
-    // scroll progress from the exact same element.
+    // ── Find the scroll reference element ─────────────────────────
+    // Priority:
+    // 1. User-specified scrollSelector (CSS selector)
+    // 2. ScrollImageSequence's [data-scroll-sequence] marker
+    // 3. Walk up DOM to find nearest tall ancestor (> 1.5× viewport)
+    // 4. document.documentElement (full-page scroll)
 
     const scrollElRef = useRef<HTMLElement | null>(null)
 
-    useEffect(() => {
-        scrollElRef.current =
-            document.querySelector("[data-scroll-sequence]") as HTMLElement | null
-    }, [])
+    function discoverScrollEl(): HTMLElement {
+        if (scrollSelector) {
+            const el = document.querySelector(scrollSelector) as HTMLElement | null
+            if (el) return el
+        }
+        const seq = document.querySelector("[data-scroll-sequence]") as HTMLElement | null
+        if (seq) return seq
+        let node: HTMLElement | null = containerRef.current
+        while (node && node !== document.documentElement) {
+            if (node.scrollHeight > window.innerHeight * 1.5) {
+                return node
+            }
+            node = node.parentElement
+        }
+        return document.documentElement
+    }
 
-    // ── Scroll handler (same math as ScrollImageSequence) ───────────
+    // ── Scroll handler ─────────────────────────────────────────────
 
     useEffect(() => {
-        if (totalFrames === 0) return
+        if (isCanvas || totalFrames === 0) return
 
         function onScroll() {
             rafRef.current = requestAnimationFrame(() => {
-                const scrollEl =
-                    scrollElRef.current ||
-                    (document.querySelector("[data-scroll-sequence]") as HTMLElement | null)
-
-                if (!scrollEl) return
-                scrollElRef.current = scrollEl
+                if (!scrollElRef.current) {
+                    scrollElRef.current = discoverScrollEl()
+                }
+                const scrollEl = scrollElRef.current
 
                 const rect = scrollEl.getBoundingClientRect()
                 const scrollable = rect.height - window.innerHeight
@@ -172,7 +187,12 @@ export default function ScrollCard3D(props: Props) {
             window.removeEventListener("scroll", onScroll)
             if (rafRef.current) cancelAnimationFrame(rafRef.current)
         }
-    }, [totalFrames])
+    }, [totalFrames, scrollSelector, isCanvas])
+
+    // Reset cached scroll element when selector changes
+    useEffect(() => {
+        scrollElRef.current = null
+    }, [scrollSelector])
 
     // ── Compute interpolated values ─────────────────────────────────
 
@@ -371,6 +391,14 @@ addPropertyControls(ScrollCard3D, {
         options: ["hidden", "start", "peak", "end"],
         optionTitles: ["Hidden", "Start", "Peak", "End"],
         defaultValue: "peak",
+    },
+    scrollSelector: {
+        type: ControlType.String,
+        title: "Scroll Selector",
+        defaultValue: "",
+        placeholder: "e.g. #my-section",
+        description:
+            "CSS selector for the scroll container. Leave empty to auto-detect (uses ScrollImageSequence if present, otherwise nearest tall ancestor).",
     },
 
     // ── Perspective ─────────────────────────────────────────────────
