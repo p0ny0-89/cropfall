@@ -40,6 +40,8 @@ interface Props {
     endOpacity: number
     // Easing
     easing: "linear" | "ease-in" | "ease-out" | "ease-in-out"
+    // Scroll reference
+    scrollSelector: string
     // Canvas preview
     previewKeyframe: "hidden" | "start" | "peak" | "end"
 }
@@ -84,74 +86,87 @@ function lerp(a: number, b: number, t: number): number {
  * @framerSupportedLayoutWidth any
  * @framerDisableUnlink
  */
-export default function ScrollCard3D(props: Props) {
+export default function ScrollCard3DStandalone(props: Props) {
     const {
         children,
-        totalFrames = 400,
-        enterFrame = 60,
-        peakFrame = 90,
-        exitFrame = 120,
+        totalFrames = 10,
+        enterFrame = 0,
+        peakFrame = 5,
+        exitFrame = 10,
         perspective = 1000,
         perspectiveOriginX = 50,
         perspectiveOriginY = 50,
         // Start
-        startX = -200,
-        startY = 100,
-        startScale = 0.4,
+        startX = 0,
+        startY = 0,
+        startScale = 0.8,
         startRotateX = 0,
-        startRotateY = 35,
-        startRotateZ = -3,
+        startRotateY = 0,
+        startRotateZ = 0,
         startOpacity = 0,
         // Peak
-        peakX = 200,
-        peakY = -50,
+        peakX = 0,
+        peakY = 0,
         peakScale = 1,
         peakRotateX = 0,
-        peakRotateY = 8,
+        peakRotateY = 0,
         peakRotateZ = 0,
         peakOpacity = 1,
         // End
-        endX = 500,
-        endY = -200,
-        endScale = 1.3,
+        endX = 0,
+        endY = 0,
+        endScale = 0.8,
         endRotateX = 0,
-        endRotateY = -15,
-        endRotateZ = 3,
+        endRotateY = 0,
+        endRotateZ = 0,
         endOpacity = 0,
         easing = "ease-in-out",
+        scrollSelector = "",
         previewKeyframe = "peak",
     } = props
 
     const isCanvas = RenderTarget.current() === RenderTarget.canvas
     const containerRef = useRef<HTMLDivElement>(null)
     const rafRef = useRef<number>(0)
+    const scrollElRef = useRef<HTMLElement | null>(null)
     const [currentFrame, setCurrentFrame] = useState(0)
 
-    // ── Find the ScrollImageSequence container ────────────────────
-    // Look for the [data-scroll-sequence] element that ScrollImageSequence
-    // stamps on its outer div. This guarantees both components measure
-    // scroll progress from the exact same element.
+    // ── Find the scroll reference element ─────────────────────────
+    // Priority:
+    // 1. User-specified scrollSelector (CSS selector)
+    // 2. Walk up DOM to find nearest tall ancestor (> 1.5× viewport)
+    // 3. document.documentElement (full-page scroll)
 
-    const scrollElRef = useRef<HTMLElement | null>(null)
+    function discoverScrollEl(): HTMLElement {
+        // 1. User-supplied selector
+        if (scrollSelector) {
+            const el = document.querySelector(scrollSelector) as HTMLElement | null
+            if (el) return el
+        }
+        // 2. Walk up from our DOM node
+        let node: HTMLElement | null = containerRef.current
+        while (node && node !== document.documentElement) {
+            // Check the Framer wrapper / section hierarchy
+            if (node.scrollHeight > window.innerHeight * 1.5) {
+                return node
+            }
+            node = node.parentElement
+        }
+        // 3. Full-page fallback
+        return document.documentElement
+    }
+
+    // ── Scroll handler ─────────────────────────────────────────────
 
     useEffect(() => {
-        scrollElRef.current =
-            document.querySelector("[data-scroll-sequence]") as HTMLElement | null
-    }, [])
-
-    // ── Scroll handler (same math as ScrollImageSequence) ───────────
-
-    useEffect(() => {
-        if (totalFrames === 0) return
+        if (isCanvas || totalFrames === 0) return
 
         function onScroll() {
             rafRef.current = requestAnimationFrame(() => {
-                const scrollEl =
-                    scrollElRef.current ||
-                    (document.querySelector("[data-scroll-sequence]") as HTMLElement | null)
-
-                if (!scrollEl) return
-                scrollElRef.current = scrollEl
+                if (!scrollElRef.current) {
+                    scrollElRef.current = discoverScrollEl()
+                }
+                const scrollEl = scrollElRef.current
 
                 const rect = scrollEl.getBoundingClientRect()
                 const scrollable = rect.height - window.innerHeight
@@ -172,7 +187,12 @@ export default function ScrollCard3D(props: Props) {
             window.removeEventListener("scroll", onScroll)
             if (rafRef.current) cancelAnimationFrame(rafRef.current)
         }
-    }, [totalFrames])
+    }, [totalFrames, scrollSelector, isCanvas])
+
+    // Reset cached scroll element when selector changes
+    useEffect(() => {
+        scrollElRef.current = null
+    }, [scrollSelector])
 
     // ── Compute interpolated values ─────────────────────────────────
 
@@ -277,9 +297,6 @@ export default function ScrollCard3D(props: Props) {
 
     // ── Render ───────────────────────────────────────────────────────
 
-    // Canvas: relative positioning for preview inside the Framer frame.
-    // Live: fixed to viewport so the card stays centered regardless of
-    //       how the parent frame is sized or positioned in the page.
     return (
         <div
             ref={containerRef}
@@ -323,7 +340,7 @@ export default function ScrollCard3D(props: Props) {
 
 // ─── Property Controls ──────────────────────────────────────────────
 
-addPropertyControls(ScrollCard3D, {
+addPropertyControls(ScrollCard3DStandalone, {
     children: {
         type: ControlType.ComponentInstance,
         title: "Card",
@@ -333,28 +350,28 @@ addPropertyControls(ScrollCard3D, {
     totalFrames: {
         type: ControlType.Number,
         title: "Total Frames",
-        defaultValue: 400,
+        defaultValue: 10,
         min: 1,
         step: 1,
     },
     enterFrame: {
         type: ControlType.Number,
         title: "Enter Frame",
-        defaultValue: 60,
+        defaultValue: 0,
         min: 0,
         step: 1,
     },
     peakFrame: {
         type: ControlType.Number,
         title: "Peak Frame",
-        defaultValue: 90,
+        defaultValue: 5,
         min: 0,
         step: 1,
     },
     exitFrame: {
         type: ControlType.Number,
         title: "Exit Frame",
-        defaultValue: 120,
+        defaultValue: 10,
         min: 0,
         step: 1,
     },
@@ -371,6 +388,14 @@ addPropertyControls(ScrollCard3D, {
         options: ["hidden", "start", "peak", "end"],
         optionTitles: ["Hidden", "Start", "Peak", "End"],
         defaultValue: "peak",
+    },
+    scrollSelector: {
+        type: ControlType.String,
+        title: "Scroll Selector",
+        defaultValue: "",
+        placeholder: "e.g. #my-section",
+        description:
+            "CSS selector for the scroll container. Leave empty to auto-detect nearest tall ancestor.",
     },
 
     // ── Perspective ─────────────────────────────────────────────────
@@ -406,7 +431,7 @@ addPropertyControls(ScrollCard3D, {
     startX: {
         type: ControlType.Number,
         title: "Start X",
-        defaultValue: -200,
+        defaultValue: 0,
         min: -1000,
         max: 1000,
         step: 1,
@@ -415,7 +440,7 @@ addPropertyControls(ScrollCard3D, {
     startY: {
         type: ControlType.Number,
         title: "Start Y",
-        defaultValue: 100,
+        defaultValue: 0,
         min: -1000,
         max: 1000,
         step: 1,
@@ -424,7 +449,7 @@ addPropertyControls(ScrollCard3D, {
     startScale: {
         type: ControlType.Number,
         title: "Start Scale",
-        defaultValue: 0.4,
+        defaultValue: 0.8,
         min: 0,
         max: 3,
         step: 0.05,
@@ -441,7 +466,7 @@ addPropertyControls(ScrollCard3D, {
     startRotateY: {
         type: ControlType.Number,
         title: "Start Rot Y",
-        defaultValue: 35,
+        defaultValue: 0,
         min: -90,
         max: 90,
         step: 1,
@@ -450,7 +475,7 @@ addPropertyControls(ScrollCard3D, {
     startRotateZ: {
         type: ControlType.Number,
         title: "Start Rot Z",
-        defaultValue: -3,
+        defaultValue: 0,
         min: -45,
         max: 45,
         step: 1,
@@ -469,7 +494,7 @@ addPropertyControls(ScrollCard3D, {
     peakX: {
         type: ControlType.Number,
         title: "Peak X",
-        defaultValue: 200,
+        defaultValue: 0,
         min: -1000,
         max: 1000,
         step: 1,
@@ -478,7 +503,7 @@ addPropertyControls(ScrollCard3D, {
     peakY: {
         type: ControlType.Number,
         title: "Peak Y",
-        defaultValue: -50,
+        defaultValue: 0,
         min: -1000,
         max: 1000,
         step: 1,
@@ -504,7 +529,7 @@ addPropertyControls(ScrollCard3D, {
     peakRotateY: {
         type: ControlType.Number,
         title: "Peak Rot Y",
-        defaultValue: 8,
+        defaultValue: 0,
         min: -90,
         max: 90,
         step: 1,
@@ -532,7 +557,7 @@ addPropertyControls(ScrollCard3D, {
     endX: {
         type: ControlType.Number,
         title: "End X",
-        defaultValue: 500,
+        defaultValue: 0,
         min: -1000,
         max: 1000,
         step: 1,
@@ -541,7 +566,7 @@ addPropertyControls(ScrollCard3D, {
     endY: {
         type: ControlType.Number,
         title: "End Y",
-        defaultValue: -200,
+        defaultValue: 0,
         min: -1000,
         max: 1000,
         step: 1,
@@ -550,7 +575,7 @@ addPropertyControls(ScrollCard3D, {
     endScale: {
         type: ControlType.Number,
         title: "End Scale",
-        defaultValue: 1.3,
+        defaultValue: 0.8,
         min: 0,
         max: 3,
         step: 0.05,
@@ -567,7 +592,7 @@ addPropertyControls(ScrollCard3D, {
     endRotateY: {
         type: ControlType.Number,
         title: "End Rot Y",
-        defaultValue: -15,
+        defaultValue: 0,
         min: -90,
         max: 90,
         step: 1,
@@ -576,7 +601,7 @@ addPropertyControls(ScrollCard3D, {
     endRotateZ: {
         type: ControlType.Number,
         title: "End Rot Z",
-        defaultValue: 3,
+        defaultValue: 0,
         min: -45,
         max: 45,
         step: 1,
