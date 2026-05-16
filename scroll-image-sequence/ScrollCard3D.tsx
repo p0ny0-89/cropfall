@@ -302,50 +302,103 @@ export default function ScrollCard3D(props: Props) {
 
     // ── Render ───────────────────────────────────────────────────────
 
-    // Paired with ScrollImageSequence: fixed to viewport so the card
-    //   overlays the sticky image sequence correctly.
-    // Standalone: relative/absolute within the parent section so the
-    //   card stays inside its container and scrolls with it.
-    // Canvas: always relative for preview.
+    // Paired with ScrollImageSequence → fixed to viewport (overlays
+    //   the sticky image sequence).
+    // Standalone → fills parent with a sticky inner viewport so the
+    //   card stays pinned while the tall section scrolls.
+    // Canvas → relative for keyframe preview.
 
     const useFixed = !isCanvas && isPairedWithSequence
 
+    const cardTransform = (
+        <div
+            style={{
+                position: "absolute",
+                left: "50%",
+                top: "50%",
+                transform: `
+                    translate(-50%, -50%)
+                    translate3d(${x}px, ${y}px, 0px)
+                    rotateX(${rotX}deg)
+                    rotateY(${rotY}deg)
+                    rotateZ(${rotZ}deg)
+                    scale(${scale})
+                `,
+                opacity,
+                willChange: "transform, opacity",
+                pointerEvents: opacity > 0.1 ? "auto" : "none",
+                transformStyle: "preserve-3d",
+            }}
+        >
+            {children}
+        </div>
+    )
+
+    if (isCanvas) {
+        // Canvas: simple relative container for preview
+        return (
+            <div
+                ref={containerRef}
+                style={{
+                    position: "relative",
+                    width: "100%",
+                    height: "100%",
+                    pointerEvents: "none",
+                    overflow: "visible",
+                    perspective,
+                    perspectiveOrigin: `${perspectiveOriginX}% ${perspectiveOriginY}%`,
+                }}
+            >
+                {cardTransform}
+            </div>
+        )
+    }
+
+    if (useFixed) {
+        // Paired mode: fixed to viewport
+        return (
+            <div
+                ref={containerRef}
+                style={{
+                    position: "fixed",
+                    top: 0,
+                    left: 0,
+                    width: "100vw",
+                    height: "100vh",
+                    pointerEvents: "none",
+                    overflow: "visible",
+                    perspective,
+                    perspectiveOrigin: `${perspectiveOriginX}% ${perspectiveOriginY}%`,
+                    zIndex: 10,
+                }}
+            >
+                {cardTransform}
+            </div>
+        )
+    }
+
+    // Standalone mode: fill parent, sticky inner viewport
     return (
         <div
             ref={containerRef}
             style={{
-                position: useFixed ? "fixed" : (isCanvas ? "relative" : "absolute"),
-                top: 0,
-                left: 0,
-                width: useFixed ? "100vw" : "100%",
-                height: useFixed ? "100vh" : "100%",
+                position: "absolute",
+                inset: 0,
                 pointerEvents: "none",
-                overflow: "visible",
-                perspective,
-                perspectiveOrigin: `${perspectiveOriginX}% ${perspectiveOriginY}%`,
-                zIndex: 10,
             }}
         >
             <div
                 style={{
-                    position: "absolute",
-                    left: "50%",
-                    top: "50%",
-                    transform: `
-                        translate(-50%, -50%)
-                        translate3d(${x}px, ${y}px, 0px)
-                        rotateX(${rotX}deg)
-                        rotateY(${rotY}deg)
-                        rotateZ(${rotZ}deg)
-                        scale(${scale})
-                    `,
-                    opacity,
-                    willChange: "transform, opacity",
-                    pointerEvents: opacity > 0.1 ? "auto" : "none",
-                    transformStyle: "preserve-3d",
+                    position: "sticky",
+                    top: 0,
+                    width: "100%",
+                    height: "100vh",
+                    overflow: "visible",
+                    perspective,
+                    perspectiveOrigin: `${perspectiveOriginX}% ${perspectiveOriginY}%`,
                 }}
             >
-                {children}
+                {cardTransform}
             </div>
         </div>
     )
