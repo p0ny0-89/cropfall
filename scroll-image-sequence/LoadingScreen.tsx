@@ -147,11 +147,11 @@ export default function LoadingScreen(props: Props) {
         }
     }
 
-    const hasSvgChild =
-        loaderMode === "svg" &&
-        children &&
-        Array.isArray(children) &&
-        children.length > 0
+    // Framer passes ComponentInstance as a single element or an array
+    const svgChild = loaderMode === "svg"
+        ? (Array.isArray(children) ? children[0] : children) || null
+        : null
+    const hasSvgChild = !!svgChild
 
     return (
         <div
@@ -191,7 +191,7 @@ export default function LoadingScreen(props: Props) {
                         }}
                     >
                         <div style={{ width: "100%", height: "100%" }}>
-                            {children[0]}
+                            {svgChild}
                         </div>
                     </div>
 
@@ -209,7 +209,7 @@ export default function LoadingScreen(props: Props) {
                         }}
                     >
                         <div style={{ width: "100%", height: "100%" }}>
-                            {children[0]}
+                            {svgChild}
                         </div>
                     </div>
                 </div>
