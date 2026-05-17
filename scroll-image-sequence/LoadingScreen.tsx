@@ -70,13 +70,53 @@ export default function LoadingScreen(props: Props) {
     const [hidden, setHidden] = useState(false)
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-    // ── Lock scroll + poll ScrollImageSequence progress ─────────
+    // ── Lock scroll + hide content to prevent appear-on-view effects ──
+
+    const loaderRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         // Lock scroll — only overflow, don't constrain height
         // so Framer still renders off-screen components
         const originalOverflow = document.body.style.overflow
         document.body.style.overflow = "hidden"
+
+        // Hide page content so IntersectionObserver-based "appear on view"
+        // effects don't fire while the loading screen is visible.
+        // Strategy: walk up from the loader to find its nearest "section" ancestor
+        // (where siblings represent other page sections), then hide those siblings.
+        // visibility:hidden prevents IO triggers while keeping layout intact for preload.
+        const hiddenEls: HTMLElement[] = []
+        if (loaderRef.current) {
+            // Walk up to find the loader's section-level container.
+            // In Framer, sections are siblings inside a page wrapper.
+            // We look for the ancestor whose parent has multiple children (sections).
+            let sectionEl: HTMLElement | null = loaderRef.current
+            while (sectionEl && sectionEl.parentElement) {
+                const parent = sectionEl.parentElement
+                // Stop when we find a parent with multiple element children
+                // (i.e. the page wrapper containing sections)
+                if (parent.children.length > 1 && parent !== document.body) {
+                    break
+                }
+                // Also stop at body
+                if (parent === document.body) break
+                sectionEl = parent
+            }
+
+            // Hide all sibling sections
+            if (sectionEl && sectionEl.parentElement) {
+                const siblings = sectionEl.parentElement.children
+                for (let i = 0; i < siblings.length; i++) {
+                    const el = siblings[i] as HTMLElement
+                    if (el !== sectionEl && el.style !== undefined) {
+                        el.dataset.loaderHiddenVis = el.style.visibility || ""
+                        el.style.visibility = "hidden"
+                        hiddenEls.push(el)
+                    }
+                }
+            }
+        }
+        ;(window as any).__loaderHiddenEls = hiddenEls
 
         // Poll window globals set by ScrollImageSequence
         pollRef.current = setInterval(() => {
@@ -109,6 +149,15 @@ export default function LoadingScreen(props: Props) {
         if (!loaded) return
 
         const delayTimer = setTimeout(() => {
+            // Restore visibility on page content so appear effects can now fire
+            const hiddenEls: HTMLElement[] =
+                (window as any).__loaderHiddenEls || []
+            hiddenEls.forEach((el) => {
+                el.style.visibility = el.dataset.loaderHiddenVis || ""
+                delete el.dataset.loaderHiddenVis
+            })
+            ;(window as any).__loaderHiddenEls = []
+
             setDismissed(true)
             document.body.style.overflow = ""
 
@@ -172,6 +221,8 @@ export default function LoadingScreen(props: Props) {
 
     return (
         <div
+            ref={loaderRef}
+            data-loading-screen
             style={{
                 position: "fixed",
                 inset: 0,
