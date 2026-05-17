@@ -671,6 +671,8 @@ export default function ScrollImageSequence(props: Props) {
         <div
             ref={containerRef}
             data-scroll-sequence
+            data-load-progress={String(loadProgress)}
+            data-loaded={isLoaded ? "true" : "false"}
             style={{
                 position: "relative",
                 width: "100%",
