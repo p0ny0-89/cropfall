@@ -68,7 +68,7 @@ export default function LoadingScreen(props: Props) {
     const [loaded, setLoaded] = useState(false)
     const [dismissed, setDismissed] = useState(false)
     const [hidden, setHidden] = useState(false)
-    const pollRef = useRef<number>(0)
+    const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
     // ── Lock scroll + poll ScrollImageSequence progress ─────────
 
@@ -78,27 +78,36 @@ export default function LoadingScreen(props: Props) {
         const originalOverflow = document.body.style.overflow
         document.body.style.overflow = "hidden"
 
-        function poll() {
+        let foundElement = false
+
+        // Poll with setInterval for reliable DOM attribute reading
+        pollRef.current = setInterval(() => {
             const el = document.querySelector("[data-scroll-sequence]")
             if (el) {
+                foundElement = true
                 const prog = parseFloat(
                     el.getAttribute("data-load-progress") || "0"
                 )
                 const done = el.getAttribute("data-loaded") === "true"
                 setProgress(prog)
-                if (done) {
+                // Dismiss when loaded OR when progress hits 100%
+                if (done || prog >= 1) {
                     setLoaded(true)
-                    return
+                    if (pollRef.current) clearInterval(pollRef.current)
                 }
             }
-            pollRef.current = requestAnimationFrame(poll)
-        }
+        }, 100)
 
-        pollRef.current = requestAnimationFrame(poll)
+        // Safety timeout: dismiss after 30s no matter what
+        const safetyTimer = setTimeout(() => {
+            setLoaded(true)
+            if (pollRef.current) clearInterval(pollRef.current)
+        }, 30000)
 
         return () => {
             document.body.style.overflow = originalOverflow
-            if (pollRef.current) cancelAnimationFrame(pollRef.current)
+            if (pollRef.current) clearInterval(pollRef.current)
+            clearTimeout(safetyTimer)
         }
     }, [])
 
