@@ -130,20 +130,37 @@ export default function LoadingScreen(props: Props) {
 
     const pct = Math.round(progress * 100)
 
-    // Compute clip-path for SVG fill based on direction
-    function getClipPath(prog: number): string {
-        const p = prog * 100
+    // Compute overflow-reveal styles for the fill mask.
+    // The mask container clips the SVG; the inner positions the SVG
+    // so it stays aligned with the track layer underneath.
+    const p = progress * 100
+    function getFillMaskStyle(): React.CSSProperties {
         switch (fillDirection) {
             case "up":
-                return `inset(${100 - p}% 0 0 0)`
+                return { bottom: 0, left: 0, width: "100%", height: `${p}%` }
             case "down":
-                return `inset(0 0 ${100 - p}% 0)`
+                return { top: 0, left: 0, width: "100%", height: `${p}%` }
             case "left":
-                return `inset(0 ${100 - p}% 0 0)`
+                return { top: 0, right: 0, width: `${p}%`, height: "100%" }
             case "right":
-                return `inset(0 0 0 ${100 - p}%)`
+                return { top: 0, left: 0, width: `${p}%`, height: "100%" }
             default:
-                return `inset(${100 - p}% 0 0 0)`
+                return { bottom: 0, left: 0, width: "100%", height: `${p}%` }
+        }
+    }
+    // Position the SVG inside the mask so it aligns with the track
+    function getFillInnerStyle(): React.CSSProperties {
+        switch (fillDirection) {
+            case "up":
+                return { position: "absolute" as const, bottom: 0, left: 0, width: svgSize, height: svgSize }
+            case "down":
+                return { position: "absolute" as const, top: 0, left: 0, width: svgSize, height: svgSize }
+            case "left":
+                return { position: "absolute" as const, top: 0, right: 0, width: svgSize, height: svgSize }
+            case "right":
+                return { position: "absolute" as const, top: 0, left: 0, width: svgSize, height: svgSize }
+            default:
+                return { position: "absolute" as const, bottom: 0, left: 0, width: svgSize, height: svgSize }
         }
     }
 
@@ -182,11 +199,7 @@ export default function LoadingScreen(props: Props) {
                     <div
                         style={{
                             position: "absolute",
-                            top: "50%",
-                            left: "50%",
-                            transform: "translate(-50%, -50%)",
-                            width: svgSize,
-                            height: svgSize,
+                            inset: 0,
                             opacity: svgTrackOpacity,
                             color: svgTrackColor,
                         }}
@@ -194,22 +207,19 @@ export default function LoadingScreen(props: Props) {
                         {svgChild}
                     </div>
 
-                    {/* Fill layer — clipped to progress */}
+                    {/* Fill layer — revealed via overflow:hidden mask */}
                     <div
                         style={{
                             position: "absolute",
-                            top: "50%",
-                            left: "50%",
-                            transform: "translate(-50%, -50%)",
-                            width: svgSize,
-                            height: svgSize,
-                            clipPath: getClipPath(progress),
-                            WebkitClipPath: getClipPath(progress),
-                            transition: "clip-path 0.2s ease-out, -webkit-clip-path 0.2s ease-out",
+                            overflow: "hidden",
+                            transition: "width 0.2s ease-out, height 0.2s ease-out",
                             color: svgFillColor,
+                            ...getFillMaskStyle(),
                         }}
                     >
-                        {svgChild}
+                        <div style={getFillInnerStyle()}>
+                            {svgChild}
+                        </div>
                     </div>
                 </div>
             )}
