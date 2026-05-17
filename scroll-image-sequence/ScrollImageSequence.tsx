@@ -233,24 +233,28 @@ export default function ScrollImageSequence(props: Props) {
                         images[idx] = img
                         loaded++
                         active--
-                        setLoadProgress(loaded / totalFrames)
+                        const prog = loaded / totalFrames
+                        setLoadProgress(prog)
+                        ;(window as any).__seqProgress = prog
                         if (loaded === totalFrames) {
                             imagesRef.current = images
                             setIsLoaded(true)
+                            ;(window as any).__seqLoaded = true
                         }
                         kick()
                     }
                     img.onerror = () => {
                         if (cancelled) return
-                        // Skip failed images but keep loading
                         loaded++
                         active--
-                        setLoadProgress(loaded / totalFrames)
+                        const prog = loaded / totalFrames
+                        setLoadProgress(prog)
+                        ;(window as any).__seqProgress = prog
                         if (loaded === totalFrames) {
-                            // Only mark loaded if at least some images succeeded
                             if (images.some(Boolean)) {
                                 imagesRef.current = images
                                 setIsLoaded(true)
+                                ;(window as any).__seqLoaded = true
                             }
                         }
                         kick()
@@ -276,9 +280,15 @@ export default function ScrollImageSequence(props: Props) {
                 imagesRef.current = images
                 setIsLoaded(true)
                 setLoadProgress(1)
+                ;(window as any).__seqProgress = 1
+                ;(window as any).__seqLoaded = true
             }
             img.src = frameUrls[0]
         }
+
+        // Initialize globals
+        ;(window as any).__seqProgress = 0
+        ;(window as any).__seqLoaded = false
 
         return () => {
             cancelled = true

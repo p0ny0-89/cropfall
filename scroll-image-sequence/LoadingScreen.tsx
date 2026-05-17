@@ -78,23 +78,15 @@ export default function LoadingScreen(props: Props) {
         const originalOverflow = document.body.style.overflow
         document.body.style.overflow = "hidden"
 
-        let foundElement = false
-
-        // Poll with setInterval for reliable DOM attribute reading
+        // Poll window globals set by ScrollImageSequence
         pollRef.current = setInterval(() => {
-            const el = document.querySelector("[data-scroll-sequence]")
-            if (el) {
-                foundElement = true
-                const prog = parseFloat(
-                    el.getAttribute("data-load-progress") || "0"
-                )
-                const done = el.getAttribute("data-loaded") === "true"
-                setProgress(prog)
-                // Dismiss when loaded OR when progress hits 100%
-                if (done || prog >= 1) {
-                    setLoaded(true)
-                    if (pollRef.current) clearInterval(pollRef.current)
-                }
+            const w = window as any
+            const prog = typeof w.__seqProgress === "number" ? w.__seqProgress : 0
+            const done = w.__seqLoaded === true
+            setProgress(prog)
+            if (done || prog >= 1) {
+                setLoaded(true)
+                if (pollRef.current) clearInterval(pollRef.current)
             }
         }, 100)
 
