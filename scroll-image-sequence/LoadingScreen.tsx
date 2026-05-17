@@ -70,58 +70,31 @@ export default function LoadingScreen(props: Props) {
     const [hidden, setHidden] = useState(false)
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-    // ── Lock scroll + hide content to prevent appear-on-view effects ──
-
-    const loaderRef = useRef<HTMLDivElement>(null)
+    // ── Lock scroll + block appear effects ─────────────────────
 
     const isCanvas = RenderTarget.current() === RenderTarget.canvas
 
     useEffect(() => {
-        // Skip all loading logic on canvas — just show a static preview
+        // Skip all loading logic on canvas
         if (isCanvas) return
 
-        // Lock scroll — only overflow, don't constrain height
-        // so Framer still renders off-screen components
+        // Lock scroll
         const originalOverflow = document.body.style.overflow
         document.body.style.overflow = "hidden"
 
-        // Hide page content so IntersectionObserver-based "appear on view"
-        // effects don't fire while the loading screen is visible.
-        // Strategy: walk up from the loader to find its nearest "section" ancestor
-        // (where siblings represent other page sections), then hide those siblings.
-        // visibility:hidden prevents IO triggers while keeping layout intact for preload.
-        const hiddenEls: HTMLElement[] = []
-        if (loaderRef.current) {
-            // Walk up to find the loader's section-level container.
-            // In Framer, sections are siblings inside a page wrapper.
-            // We look for the ancestor whose parent has multiple children (sections).
-            let sectionEl: HTMLElement | null = loaderRef.current
-            while (sectionEl && sectionEl.parentElement) {
-                const parent = sectionEl.parentElement
-                // Stop when we find a parent with multiple element children
-                // (i.e. the page wrapper containing sections)
-                if (parent.children.length > 1 && parent !== document.body) {
-                    break
-                }
-                // Also stop at body
-                if (parent === document.body) break
-                sectionEl = parent
+        // Prevent appear-on-view effects from firing during loading.
+        // We inject a <style> that forces all page content (except the loader)
+        // to have no height/width so IntersectionObserver sees no bounding box.
+        // Using a global style avoids needing to find specific siblings.
+        const styleEl = document.createElement("style")
+        styleEl.id = "__loader-block-io"
+        styleEl.textContent = `
+            [data-framer-appear-id] {
+                transition: none !important;
+                animation: none !important;
             }
-
-            // Hide all sibling sections
-            if (sectionEl && sectionEl.parentElement) {
-                const siblings = sectionEl.parentElement.children
-                for (let i = 0; i < siblings.length; i++) {
-                    const el = siblings[i] as HTMLElement
-                    if (el !== sectionEl && el.style !== undefined) {
-                        el.dataset.loaderHiddenVis = el.style.visibility || ""
-                        el.style.visibility = "hidden"
-                        hiddenEls.push(el)
-                    }
-                }
-            }
-        }
-        ;(window as any).__loaderHiddenEls = hiddenEls
+        `
+        document.head.appendChild(styleEl)
 
         // Poll window globals set by ScrollImageSequence
         pollRef.current = setInterval(() => {
@@ -145,23 +118,20 @@ export default function LoadingScreen(props: Props) {
             document.body.style.overflow = originalOverflow
             if (pollRef.current) clearInterval(pollRef.current)
             clearTimeout(safetyTimer)
+            const el = document.getElementById("__loader-block-io")
+            if (el) el.remove()
         }
     }, [])
 
     // ── Dismiss after load + delay ──────────────────────────────
 
     useEffect(() => {
-        if (!loaded) return
+        if (!loaded || isCanvas) return
 
         const delayTimer = setTimeout(() => {
-            // Restore visibility on page content so appear effects can now fire
-            const hiddenEls: HTMLElement[] =
-                (window as any).__loaderHiddenEls || []
-            hiddenEls.forEach((el) => {
-                el.style.visibility = el.dataset.loaderHiddenVis || ""
-                delete el.dataset.loaderHiddenVis
-            })
-            ;(window as any).__loaderHiddenEls = []
+            // Remove the animation-blocking style so appear effects can fire
+            const styleEl = document.getElementById("__loader-block-io")
+            if (styleEl) styleEl.remove()
 
             setDismissed(true)
             document.body.style.overflow = ""
@@ -180,7 +150,7 @@ export default function LoadingScreen(props: Props) {
 
     if (hidden && !isCanvas) return null
 
-    // ── Canvas preview — show a compact static representation ───
+    // ── Canvas preview — transparent indicator ──────────────────
 
     if (isCanvas) {
         return (
@@ -192,14 +162,27 @@ export default function LoadingScreen(props: Props) {
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
-                    background: backgroundColor,
+                    background: "rgba(0,0,0,0.6)",
                     borderRadius: 8,
+                    border: "1px dashed rgba(255,255,255,0.2)",
                 }}
             >
+                <span
+                    style={{
+                        fontFamily: "system-ui, sans-serif",
+                        fontSize: 11,
+                        color: "rgba(255,255,255,0.5)",
+                        marginBottom: 8,
+                        letterSpacing: "0.05em",
+                        textTransform: "uppercase" as const,
+                    }}
+                >
+                    Loading Screen
+                </span>
                 {loaderMode === "bar" && (
                     <div
                         style={{
-                            width: barWidth,
+                            width: Math.min(barWidth, 120),
                             height: barHeight,
                             borderRadius: barBorderRadius,
                             background: barTrackColor,
@@ -217,39 +200,9 @@ export default function LoadingScreen(props: Props) {
                     </div>
                 )}
                 {loaderMode === "svg" && (
-                    <div style={{ width: svgSize, height: svgSize, color: svgFillColor }}>
-                        {(Array.isArray(children) ? children[0] : children) || (
-                            <div
-                                style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    border: "1px dashed rgba(255,255,255,0.3)",
-                                    borderRadius: 8,
-                                    color: "#666",
-                                    fontFamily: "system-ui, sans-serif",
-                                    fontSize: 11,
-                                    textAlign: "center" as const,
-                                }}
-                            >
-                                Drop SVG here
-                            </div>
-                        )}
+                    <div style={{ width: Math.min(svgSize, 40), height: Math.min(svgSize, 40), color: svgFillColor }}>
+                        {(Array.isArray(children) ? children[0] : children) || null}
                     </div>
-                )}
-                {showPercentage && (
-                    <span
-                        style={{
-                            marginTop: percentageOffsetY,
-                            fontFamily: percentageFont?.fontFamily || "system-ui, sans-serif",
-                            fontSize: percentageFontSize,
-                            color: percentageColor,
-                        }}
-                    >
-                        65%
-                    </span>
                 )}
             </div>
         )
@@ -301,21 +254,18 @@ export default function LoadingScreen(props: Props) {
 
     return (
         <div
-            ref={loaderRef}
             data-loading-screen
             style={{
-                position: isCanvas ? "relative" : "fixed",
-                inset: isCanvas ? undefined : 0,
-                zIndex: isCanvas ? undefined : 9999,
-                width: "100%",
-                height: "100%",
+                position: "fixed",
+                inset: 0,
+                zIndex: 9999,
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
                 background: backgroundColor,
                 opacity: dismissed ? 0 : 1,
-                transition: isCanvas ? undefined : `opacity ${fadeOutDuration}s ease`,
+                transition: `opacity ${fadeOutDuration}s ease`,
                 pointerEvents: dismissed ? "none" : "auto",
             }}
         >
