@@ -1,4 +1,4 @@
-import { addPropertyControls, ControlType } from "framer"
+import { addPropertyControls, ControlType, RenderTarget } from "framer"
 import { useEffect, useRef, useState, cloneElement } from "react"
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -74,7 +74,12 @@ export default function LoadingScreen(props: Props) {
 
     const loaderRef = useRef<HTMLDivElement>(null)
 
+    const isCanvas = RenderTarget.current() === RenderTarget.canvas
+
     useEffect(() => {
+        // Skip all loading logic on canvas — just show a static preview
+        if (isCanvas) return
+
         // Lock scroll — only overflow, don't constrain height
         // so Framer still renders off-screen components
         const originalOverflow = document.body.style.overflow
@@ -173,7 +178,7 @@ export default function LoadingScreen(props: Props) {
 
     // ── Fully hidden — render nothing ───────────────────────────
 
-    if (hidden) return null
+    if (hidden && !isCanvas) return null
 
     // ── Render ──────────────────────────────────────────────────
 
@@ -224,16 +229,18 @@ export default function LoadingScreen(props: Props) {
             ref={loaderRef}
             data-loading-screen
             style={{
-                position: "fixed",
-                inset: 0,
-                zIndex: 9999,
+                position: isCanvas ? "relative" : "fixed",
+                inset: isCanvas ? undefined : 0,
+                zIndex: isCanvas ? undefined : 9999,
+                width: "100%",
+                height: "100%",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
                 background: backgroundColor,
                 opacity: dismissed ? 0 : 1,
-                transition: `opacity ${fadeOutDuration}s ease`,
+                transition: isCanvas ? undefined : `opacity ${fadeOutDuration}s ease`,
                 pointerEvents: dismissed ? "none" : "auto",
             }}
         >
