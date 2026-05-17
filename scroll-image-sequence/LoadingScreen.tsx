@@ -212,37 +212,21 @@ export default function LoadingScreen(props: Props) {
 
     const pct = Math.round(progress * 100)
 
-    // Compute overflow-reveal styles for the fill mask.
-    // The mask container clips the SVG; the inner positions the SVG
-    // so it stays aligned with the track layer underneath.
+    // Compute clip-path for the SVG fill reveal.
+    // clip-path: inset(top right bottom left) — we animate one edge from 100% to 0%.
     const p = progress * 100
-    function getFillMaskStyle(): React.CSSProperties {
+    function getFillClipPath(): string {
         switch (fillDirection) {
             case "up":
-                return { bottom: 0, left: 0, width: "100%", height: `${p}%` }
+                return `inset(${100 - p}% 0 0 0)`
             case "down":
-                return { top: 0, left: 0, width: "100%", height: `${p}%` }
+                return `inset(0 0 ${100 - p}% 0)`
             case "left":
-                return { top: 0, right: 0, width: `${p}%`, height: "100%" }
+                return `inset(0 0 0 ${100 - p}%)`
             case "right":
-                return { top: 0, left: 0, width: `${p}%`, height: "100%" }
+                return `inset(0 ${100 - p}% 0 0)`
             default:
-                return { bottom: 0, left: 0, width: "100%", height: `${p}%` }
-        }
-    }
-    // Position the SVG inside the mask so it aligns with the track
-    function getFillInnerStyle(): React.CSSProperties {
-        switch (fillDirection) {
-            case "up":
-                return { position: "absolute" as const, bottom: 0, left: 0, width: svgSize, height: svgSize }
-            case "down":
-                return { position: "absolute" as const, top: 0, left: 0, width: svgSize, height: svgSize }
-            case "left":
-                return { position: "absolute" as const, top: 0, right: 0, width: svgSize, height: svgSize }
-            case "right":
-                return { position: "absolute" as const, top: 0, left: 0, width: svgSize, height: svgSize }
-            default:
-                return { position: "absolute" as const, bottom: 0, left: 0, width: svgSize, height: svgSize }
+                return `inset(${100 - p}% 0 0 0)`
         }
     }
 
@@ -274,15 +258,13 @@ export default function LoadingScreen(props: Props) {
                 <div
                     style={{
                         position: "relative",
-                        width: svgSize,
-                        height: svgSize,
+                        transform: `scale(${svgSize / 100})`,
+                        transformOrigin: "center center",
                     }}
                 >
                     {/* Track layer — dim version of the SVG */}
                     <div
                         style={{
-                            position: "absolute",
-                            inset: 0,
                             opacity: svgTrackOpacity,
                             color: svgTrackColor,
                         }}
@@ -290,19 +272,17 @@ export default function LoadingScreen(props: Props) {
                         {svgChild}
                     </div>
 
-                    {/* Fill layer — revealed via overflow:hidden mask */}
+                    {/* Fill layer — revealed via clip-path */}
                     <div
                         style={{
                             position: "absolute",
-                            overflow: "hidden",
-                            transition: "width 0.2s ease-out, height 0.2s ease-out",
+                            inset: 0,
                             color: svgFillColor,
-                            ...getFillMaskStyle(),
+                            clipPath: getFillClipPath(),
+                            transition: "clip-path 0.2s ease-out",
                         }}
                     >
-                        <div style={getFillInnerStyle()}>
-                            {svgChild}
-                        </div>
+                        {svgChild}
                     </div>
                 </div>
             )}
@@ -311,8 +291,8 @@ export default function LoadingScreen(props: Props) {
             {loaderMode === "svg" && !hasSvgChild && (
                 <div
                     style={{
-                        width: svgSize,
-                        height: svgSize,
+                        width: 80,
+                        height: 80,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -396,12 +376,13 @@ addPropertyControls(LoadingScreen, {
     },
     svgSize: {
         type: ControlType.Number,
-        title: "SVG Size",
+        title: "SVG Scale",
         defaultValue: 80,
-        min: 20,
-        max: 400,
-        step: 1,
-        unit: "px",
+        min: 10,
+        max: 300,
+        step: 5,
+        unit: "%",
+        description: "Scale of the SVG relative to its natural size",
         hidden: (props) => props.loaderMode !== "svg",
     },
     svgFillColor: {
