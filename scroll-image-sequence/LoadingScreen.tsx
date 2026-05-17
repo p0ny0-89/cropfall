@@ -182,35 +182,34 @@ export default function LoadingScreen(props: Props) {
                     <div
                         style={{
                             position: "absolute",
-                            inset: 0,
+                            top: "50%",
+                            left: "50%",
+                            transform: "translate(-50%, -50%)",
+                            width: svgSize,
+                            height: svgSize,
                             opacity: svgTrackOpacity,
                             color: svgTrackColor,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
                         }}
                     >
-                        <div style={{ width: "100%", height: "100%" }}>
-                            {svgChild}
-                        </div>
+                        {svgChild}
                     </div>
 
                     {/* Fill layer — clipped to progress */}
                     <div
                         style={{
                             position: "absolute",
-                            inset: 0,
+                            top: "50%",
+                            left: "50%",
+                            transform: "translate(-50%, -50%)",
+                            width: svgSize,
+                            height: svgSize,
                             clipPath: getClipPath(progress),
-                            transition: "clip-path 0.2s ease-out",
+                            WebkitClipPath: getClipPath(progress),
+                            transition: "clip-path 0.2s ease-out, -webkit-clip-path 0.2s ease-out",
                             color: svgFillColor,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
                         }}
                     >
-                        <div style={{ width: "100%", height: "100%" }}>
-                            {svgChild}
-                        </div>
+                        {svgChild}
                     </div>
                 </div>
             )}
