@@ -180,6 +180,81 @@ export default function LoadingScreen(props: Props) {
 
     if (hidden && !isCanvas) return null
 
+    // ── Canvas preview — show a compact static representation ───
+
+    if (isCanvas) {
+        return (
+            <div
+                style={{
+                    width: "100%",
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: backgroundColor,
+                    borderRadius: 8,
+                }}
+            >
+                {loaderMode === "bar" && (
+                    <div
+                        style={{
+                            width: barWidth,
+                            height: barHeight,
+                            borderRadius: barBorderRadius,
+                            background: barTrackColor,
+                            overflow: "hidden",
+                        }}
+                    >
+                        <div
+                            style={{
+                                width: "65%",
+                                height: "100%",
+                                background: barColor,
+                                borderRadius: barBorderRadius,
+                            }}
+                        />
+                    </div>
+                )}
+                {loaderMode === "svg" && (
+                    <div style={{ width: svgSize, height: svgSize, color: svgFillColor }}>
+                        {(Array.isArray(children) ? children[0] : children) || (
+                            <div
+                                style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    border: "1px dashed rgba(255,255,255,0.3)",
+                                    borderRadius: 8,
+                                    color: "#666",
+                                    fontFamily: "system-ui, sans-serif",
+                                    fontSize: 11,
+                                    textAlign: "center" as const,
+                                }}
+                            >
+                                Drop SVG here
+                            </div>
+                        )}
+                    </div>
+                )}
+                {showPercentage && (
+                    <span
+                        style={{
+                            marginTop: percentageOffsetY,
+                            fontFamily: percentageFont?.fontFamily || "system-ui, sans-serif",
+                            fontSize: percentageFontSize,
+                            color: percentageColor,
+                        }}
+                    >
+                        65%
+                    </span>
+                )}
+            </div>
+        )
+    }
+
     // ── Render ──────────────────────────────────────────────────
 
     const pct = Math.round(progress * 100)
