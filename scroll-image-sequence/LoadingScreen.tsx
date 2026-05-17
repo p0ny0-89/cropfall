@@ -73,11 +73,10 @@ export default function LoadingScreen(props: Props) {
     // ── Lock scroll + poll ScrollImageSequence progress ─────────
 
     useEffect(() => {
-        // Lock scroll
+        // Lock scroll — only overflow, don't constrain height
+        // so Framer still renders off-screen components
         const originalOverflow = document.body.style.overflow
-        const originalHeight = document.body.style.height
         document.body.style.overflow = "hidden"
-        document.body.style.height = "100vh"
 
         function poll() {
             const el = document.querySelector("[data-scroll-sequence]")
@@ -99,7 +98,6 @@ export default function LoadingScreen(props: Props) {
 
         return () => {
             document.body.style.overflow = originalOverflow
-            document.body.style.height = originalHeight
             if (pollRef.current) cancelAnimationFrame(pollRef.current)
         }
     }, [])
@@ -112,7 +110,6 @@ export default function LoadingScreen(props: Props) {
         const delayTimer = setTimeout(() => {
             setDismissed(true)
             document.body.style.overflow = ""
-            document.body.style.height = ""
 
             const hideTimer = setTimeout(() => {
                 setHidden(true)
