@@ -305,7 +305,7 @@ export default function TeslaMilestoneCounter({
                 <div
                     style={{
                         width: "100%",
-                        maxWidth: isBento ? 960 : 640,
+                        maxWidth: isBento ? 960 : undefined,
                         position: "relative",
                         zIndex: 1,
                     }}
@@ -708,7 +708,7 @@ function DataRows({
                     <div
                         style={{
                             ...headerStyle,
-                            width: 90,
+                            minWidth: 110,
                             textAlign: "right",
                             flexShrink: 0,
                         }}
@@ -945,12 +945,13 @@ function DataRows({
 
                         <div
                             style={{
-                                width: 90,
+                                minWidth: 110,
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "flex-end",
                                 gap: 6,
                                 flexShrink: 0,
+                                whiteSpace: "nowrap",
                             }}
                         >
                             {isActive && (
