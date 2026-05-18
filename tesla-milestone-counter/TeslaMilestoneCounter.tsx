@@ -595,6 +595,24 @@ function revealStyle(
     }
 }
 
+function useContainerWidth(
+    ref: React.RefObject<HTMLDivElement | null>
+): number {
+    const [width, setWidth] = useState(640)
+    useEffect(() => {
+        const el = ref.current
+        if (!el) return
+        const obs = new ResizeObserver(([entry]) => {
+            setWidth(entry.contentRect.width)
+        })
+        obs.observe(el)
+        return () => obs.disconnect()
+    }, [ref])
+    return width
+}
+
+const MOBILE_BREAKPOINT = 480
+
 function DataRows({
     models,
     counts,
@@ -616,6 +634,10 @@ function DataRows({
     borderColor: string
     hasAppeared: boolean
 }) {
+    const containerRef = useRef<HTMLDivElement>(null)
+    const containerWidth = useContainerWidth(containerRef)
+    const compact = containerWidth < MOBILE_BREAKPOINT
+
     const maxActiveCount = useMemo(() => {
         let max = 0
         for (let i = 0; i < models.length; i++) {
@@ -636,56 +658,65 @@ function DataRows({
     }
 
     return (
-        <div style={{ display: "flex", flexDirection: "column" }}>
-            {/* Column headers */}
-            <div
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 16,
-                    paddingBottom: 10,
-                    borderBottom: `1px solid ${borderColor}`,
-                    marginBottom: 2,
-                    ...revealStyle(hasAppeared, 360),
-                }}
-            >
-                <div style={{ ...headerStyle, width: 120, flexShrink: 0 }}>
-                    Model
-                </div>
-                <div style={{ ...headerStyle, flex: 1 }}>Contribution</div>
+        <div
+            ref={containerRef}
+            style={{ display: "flex", flexDirection: "column" }}
+        >
+            {/* Column headers — hidden on mobile */}
+            {!compact && (
                 <div
                     style={{
-                        ...headerStyle,
-                        width: 100,
-                        textAlign: "right",
-                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 16,
+                        paddingBottom: 10,
+                        borderBottom: `1px solid ${borderColor}`,
+                        marginBottom: 2,
+                        ...revealStyle(hasAppeared, 360),
                     }}
                 >
-                    Count
-                </div>
-                {showPercentages && (
+                    <div
+                        style={{ ...headerStyle, width: 120, flexShrink: 0 }}
+                    >
+                        Model
+                    </div>
+                    <div style={{ ...headerStyle, flex: 1 }}>
+                        Contribution
+                    </div>
                     <div
                         style={{
                             ...headerStyle,
-                            width: 50,
+                            width: 100,
                             textAlign: "right",
                             flexShrink: 0,
                         }}
                     >
-                        Share
+                        Count
                     </div>
-                )}
-                <div
-                    style={{
-                        ...headerStyle,
-                        width: 90,
-                        textAlign: "right",
-                        flexShrink: 0,
-                    }}
-                >
-                    Status
+                    {showPercentages && (
+                        <div
+                            style={{
+                                ...headerStyle,
+                                width: 50,
+                                textAlign: "right",
+                                flexShrink: 0,
+                            }}
+                        >
+                            Share
+                        </div>
+                    )}
+                    <div
+                        style={{
+                            ...headerStyle,
+                            width: 90,
+                            textAlign: "right",
+                            flexShrink: 0,
+                        }}
+                    >
+                        Status
+                    </div>
                 </div>
-            </div>
+            )}
 
             {models.map((model, i) => {
                 const isFuture = model.status === "Future"
@@ -699,6 +730,133 @@ function DataRows({
                         ? (count / maxActiveCount) * 100
                         : 0
                 const isActive = model.status === "Active"
+
+                if (compact) {
+                    return (
+                        <div
+                            key={model.name}
+                            style={{
+                                padding: "14px 0",
+                                borderBottom: `1px solid ${borderColor}`,
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 8,
+                                ...revealStyle(
+                                    hasAppeared,
+                                    400 + i * 50,
+                                    isFuture ? 0.35 : undefined
+                                ),
+                            }}
+                        >
+                            {/* Top line: name, status dot, count */}
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 6,
+                                    }}
+                                >
+                                    {isActive && (
+                                        <span
+                                            style={{
+                                                display: "inline-block",
+                                                width: 5,
+                                                height: 5,
+                                                borderRadius: "50%",
+                                                backgroundColor: activeColor,
+                                                animation:
+                                                    "pulse-dot 2.4s ease-in-out infinite",
+                                                flexShrink: 0,
+                                            }}
+                                        />
+                                    )}
+                                    <span
+                                        style={{
+                                            fontSize: 12,
+                                            fontWeight: 600,
+                                            letterSpacing: "0.04em",
+                                            color: isFuture
+                                                ? `${textColor}55`
+                                                : textColor,
+                                        }}
+                                    >
+                                        {model.name}
+                                    </span>
+                                    {isFuture && (
+                                        <span
+                                            style={{
+                                                fontSize: 9,
+                                                fontWeight: 500,
+                                                letterSpacing: "0.1em",
+                                                textTransform: "uppercase",
+                                                color: `${textColor}44`,
+                                            }}
+                                        >
+                                            FUTURE
+                                        </span>
+                                    )}
+                                </div>
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "baseline",
+                                        gap: 8,
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            fontSize: 14,
+                                            fontWeight: 300,
+                                            fontVariantNumeric: "tabular-nums",
+                                            color: isFuture
+                                                ? `${textColor}44`
+                                                : `${textColor}dd`,
+                                        }}
+                                    >
+                                        {isFuture
+                                            ? "—"
+                                            : formatNumber(count)}
+                                    </span>
+                                    {showPercentages && pct && (
+                                        <span
+                                            style={{
+                                                fontSize: 10,
+                                                color: `${textColor}55`,
+                                                fontVariantNumeric:
+                                                    "tabular-nums",
+                                            }}
+                                        >
+                                            {pct}%
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            {/* Bar — full width */}
+                            {!isFuture && (
+                                <DotMatrixBar
+                                    fillPercent={barPct}
+                                    rows={2}
+                                    cols={Math.min(
+                                        32,
+                                        Math.floor(
+                                            (containerWidth - 4) / 3
+                                        )
+                                    )}
+                                    dotSize={2}
+                                    accentColor={accentColor}
+                                    trackColor={`${textColor}0d`}
+                                />
+                            )}
+                        </div>
+                    )
+                }
 
                 return (
                     <div
@@ -722,7 +880,9 @@ function DataRows({
                                 fontSize: 12,
                                 fontWeight: 600,
                                 letterSpacing: "0.04em",
-                                color: isFuture ? `${textColor}55` : textColor,
+                                color: isFuture
+                                    ? `${textColor}55`
+                                    : textColor,
                                 flexShrink: 0,
                             }}
                         >
