@@ -1,5 +1,5 @@
 import { addPropertyControls, ControlType, RenderTarget } from "framer"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion"
 
 interface Project {
@@ -23,6 +23,8 @@ interface Props {
     cornerColor: string
     arrowIcon: string
     arrowSize: number
+    responsive: boolean
+    minCardWidth: number
 }
 
 const GAP = 20
@@ -114,6 +116,8 @@ export default function FeaturedWorkSlideshow(props: Props) {
         cornerColor = "#212121",
         arrowIcon,
         arrowSize = 28,
+        responsive = false,
+        minCardWidth = 400,
     } = props
 
     const isCanvas = RenderTarget.current() === RenderTarget.canvas
@@ -121,6 +125,37 @@ export default function FeaturedWorkSlideshow(props: Props) {
     const [activeIndex, setActiveIndex] = useState(0)
     const [cornerColors, setCornerColors] =
         useState<[string, string, string, string]>(DEFAULT_CORNERS)
+
+    /* ---- Responsive scaling ---- */
+    const containerRef = useRef<HTMLDivElement>(null)
+    const [containerWidth, setContainerWidth] = useState(0)
+
+    useEffect(() => {
+        if (!responsive || !containerRef.current) return
+        const el = containerRef.current
+        setContainerWidth(el.clientWidth)
+        const ro = new ResizeObserver(([entry]) => {
+            setContainerWidth(entry.contentRect.width)
+        })
+        ro.observe(el)
+        return () => ro.disconnect()
+    }, [responsive])
+
+    // Reference width = full layout at design size (card + 2 thumbs + gaps + padding)
+    const referenceWidth =
+        activeCardWidth + 2 * (thumbSize + GAP) + 64 // 64 = 32px padding × 2
+
+    let scale = 1
+    if (responsive && containerWidth > 0) {
+        const minScale = minCardWidth / activeCardWidth
+        scale = Math.max(minScale, Math.min(1, containerWidth / referenceWidth))
+    }
+
+    const scaledCardWidth = Math.round(activeCardWidth * scale)
+    const scaledCardHeight = Math.round(activeCardHeight * scale)
+    const scaledThumb = Math.round(thumbSize * scale)
+    const scaledGap = Math.round(GAP * scale)
+    const scaledArrowSize = Math.round(arrowSize * scale)
 
     const activeImage = projects[activeIndex]?.image
 
@@ -205,6 +240,7 @@ export default function FeaturedWorkSlideshow(props: Props) {
 
     return (
         <div
+            ref={containerRef}
             style={{
                 width: "100%",
                 background: backgroundColor,
@@ -219,9 +255,9 @@ export default function FeaturedWorkSlideshow(props: Props) {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: GAP,
+                    gap: scaledGap,
                     paddingTop: 80,
-                    minHeight: activeCardHeight,
+                    minHeight: scaledCardHeight,
                     overflow: "visible",
                     position: "relative",
                 }}
@@ -241,20 +277,20 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                     initial={{
                                         opacity: 0,
                                         width: isActive
-                                            ? activeCardWidth
-                                            : thumbSize,
+                                            ? scaledCardWidth
+                                            : scaledThumb,
                                         height: isActive
-                                            ? activeCardHeight
-                                            : thumbSize,
+                                            ? scaledCardHeight
+                                            : scaledThumb,
                                     }}
                                     animate={{
                                         opacity: 1,
                                         width: isActive
-                                            ? activeCardWidth
-                                            : thumbSize,
+                                            ? scaledCardWidth
+                                            : scaledThumb,
                                         height: isActive
-                                            ? activeCardHeight
-                                            : thumbSize,
+                                            ? scaledCardHeight
+                                            : scaledThumb,
                                     }}
                                     exit={{ opacity: 0 }}
                                     transition={{
@@ -326,8 +362,8 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                                     src={arrowIcon}
                                                     alt=""
                                                     style={{
-                                                        width: arrowSize,
-                                                        height: arrowSize,
+                                                        width: scaledArrowSize,
+                                                        height: scaledArrowSize,
                                                         objectFit: "contain",
                                                         transform: isPrev
                                                             ? "scaleX(-1)"
@@ -336,8 +372,8 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                                 />
                                             ) : (
                                                 <svg
-                                                    width={arrowSize}
-                                                    height={arrowSize}
+                                                    width={scaledArrowSize}
+                                                    height={scaledArrowSize}
                                                     viewBox="0 0 28 28"
                                                     fill="none"
                                                 >
@@ -627,6 +663,23 @@ addPropertyControls(FeaturedWorkSlideshow, {
         max: 64,
         step: 2,
         displayStepper: true,
+    },
+    responsive: {
+        type: ControlType.Boolean,
+        title: "Responsive",
+        defaultValue: false,
+        enabledTitle: "On",
+        disabledTitle: "Off",
+    },
+    minCardWidth: {
+        type: ControlType.Number,
+        title: "Min Card Width",
+        defaultValue: 400,
+        min: 200,
+        max: 800,
+        step: 10,
+        displayStepper: true,
+        hidden: (props: Props) => !props.responsive,
     },
     activeCardWidth: {
         type: ControlType.Number,
