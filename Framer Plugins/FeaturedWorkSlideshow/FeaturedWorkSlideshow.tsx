@@ -258,7 +258,11 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                         overflow: "visible",
                                     }}
                                 >
-                                    <div
+                                    <motion.div
+                                        layout
+                                        transition={{
+                                            layout: LAYOUT_SPRING,
+                                        }}
                                         style={{
                                             position: "absolute",
                                             inset: 0,
@@ -330,7 +334,7 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                                 )}
                                             </svg>
                                         </motion.div>
-                                    </div>
+                                    </motion.div>
 
                                     {showLabels && (
                                         <motion.div
@@ -349,8 +353,10 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                             <div
                                                 style={{
                                                     position: "absolute",
-                                                    top: -SQUARE_SIZE,
-                                                    left: -SQUARE_SIZE,
+                                                    top: 0,
+                                                    left: -(
+                                                        SQUARE_SIZE + INNER_GAP
+                                                    ),
                                                     width: SQUARE_SIZE,
                                                     height: SQUARE_SIZE,
                                                     background:
@@ -360,8 +366,10 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                             <div
                                                 style={{
                                                     position: "absolute",
-                                                    top: -SQUARE_SIZE,
-                                                    right: -SQUARE_SIZE,
+                                                    top: 0,
+                                                    right: -(
+                                                        SQUARE_SIZE + INNER_GAP
+                                                    ),
                                                     width: SQUARE_SIZE,
                                                     height: SQUARE_SIZE,
                                                     background:
@@ -379,7 +387,7 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                                         SQUARE_SIZE + INNER_GAP
                                                     ),
                                                     display: "flex",
-                                                    alignItems: "center",
+                                                    alignItems: "flex-end",
                                                     gap: INNER_GAP,
                                                     whiteSpace: "nowrap",
                                                 }}
@@ -400,7 +408,7 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                                         alignItems: "center",
                                                         justifyContent:
                                                             "space-between",
-                                                        padding: "10px 0",
+                                                        padding: "10px 0 0 0",
                                                         gap: 12,
                                                         overflow: "hidden",
                                                     }}
