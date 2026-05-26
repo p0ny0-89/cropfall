@@ -233,22 +233,34 @@ export default function FeaturedWorkSlideshow(props: Props) {
                             return (
                                 <motion.div
                                     key={projIdx}
-                                    layout
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    transition={{
-                                        layout: LAYOUT_SPRING,
-                                        opacity: { duration: 0.15 },
-                                    }}
-                                    onClick={() => handleClick(projIdx)}
-                                    style={{
+                                    layout="position"
+                                    initial={{
+                                        opacity: 0,
                                         width: isActive
                                             ? activeCardWidth
                                             : thumbSize,
                                         height: isActive
                                             ? activeCardHeight
                                             : thumbSize,
+                                    }}
+                                    animate={{
+                                        opacity: 1,
+                                        width: isActive
+                                            ? activeCardWidth
+                                            : thumbSize,
+                                        height: isActive
+                                            ? activeCardHeight
+                                            : thumbSize,
+                                    }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{
+                                        layout: LAYOUT_SPRING,
+                                        width: LAYOUT_SPRING,
+                                        height: LAYOUT_SPRING,
+                                        opacity: { duration: 0.15 },
+                                    }}
+                                    onClick={() => handleClick(projIdx)}
+                                    style={{
                                         flexShrink: 0,
                                         position: "relative",
                                         cursor: isActive
@@ -258,11 +270,7 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                         overflow: "visible",
                                     }}
                                 >
-                                    <motion.div
-                                        layout
-                                        transition={{
-                                            layout: LAYOUT_SPRING,
-                                        }}
+                                    <div
                                         style={{
                                             position: "absolute",
                                             inset: 0,
@@ -334,7 +342,7 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                                 )}
                                             </svg>
                                         </motion.div>
-                                    </motion.div>
+                                    </div>
 
                                     {showLabels && (
                                         <motion.div
@@ -350,32 +358,77 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                                 pointerEvents: "none",
                                             }}
                                         >
+                                            {/* Top row — mirrors bottom row height via invisible text */}
                                             <div
                                                 style={{
                                                     position: "absolute",
-                                                    top: 0,
+                                                    bottom: "100%",
                                                     left: -(
                                                         SQUARE_SIZE + INNER_GAP
                                                     ),
-                                                    width: SQUARE_SIZE,
-                                                    height: SQUARE_SIZE,
-                                                    background:
-                                                        resolvedCorners[0],
-                                                }}
-                                            />
-                                            <div
-                                                style={{
-                                                    position: "absolute",
-                                                    top: 0,
                                                     right: -(
                                                         SQUARE_SIZE + INNER_GAP
                                                     ),
-                                                    width: SQUARE_SIZE,
-                                                    height: SQUARE_SIZE,
-                                                    background:
-                                                        resolvedCorners[1],
+                                                    display: "flex",
+                                                    alignItems: "flex-start",
+                                                    gap: INNER_GAP,
+                                                    whiteSpace: "nowrap",
                                                 }}
-                                            />
+                                            >
+                                                <div
+                                                    style={{
+                                                        width: SQUARE_SIZE,
+                                                        height: SQUARE_SIZE,
+                                                        background:
+                                                            resolvedCorners[0],
+                                                        flexShrink: 0,
+                                                    }}
+                                                />
+                                                <div
+                                                    style={{
+                                                        flex: 1,
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent:
+                                                            "space-between",
+                                                        padding:
+                                                            "0 0 10px 0",
+                                                        gap: 12,
+                                                        overflow: "hidden",
+                                                        visibility: "hidden",
+                                                    }}
+                                                >
+                                                    <div style={titleStyle}>
+                                                        {project.title}
+                                                    </div>
+                                                    <div
+                                                        style={{
+                                                            textAlign: "right",
+                                                            flexShrink: 0,
+                                                        }}
+                                                    >
+                                                        <div
+                                                            style={metaStyle}
+                                                        >
+                                                            {project.year}
+                                                        </div>
+                                                        <div
+                                                            style={metaStyle}
+                                                        >
+                                                            {project.location}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div
+                                                    style={{
+                                                        width: SQUARE_SIZE,
+                                                        height: SQUARE_SIZE,
+                                                        background:
+                                                            resolvedCorners[1],
+                                                        flexShrink: 0,
+                                                    }}
+                                                />
+                                            </div>
                                             <div
                                                 style={{
                                                     position: "absolute",
