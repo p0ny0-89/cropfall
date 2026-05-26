@@ -21,6 +21,8 @@ interface Props {
     labelFont: Record<string, any>
     cornerColorMode: "auto" | "custom"
     cornerColor: string
+    arrowIcon: string
+    arrowSize: number
 }
 
 const GAP = 20
@@ -110,6 +112,8 @@ export default function FeaturedWorkSlideshow(props: Props) {
         labelFont,
         cornerColorMode = "auto",
         cornerColor = "#212121",
+        arrowIcon,
+        arrowSize = 28,
     } = props
 
     const isCanvas = RenderTarget.current() === RenderTarget.canvas
@@ -317,30 +321,45 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                                 pointerEvents: "none",
                                             }}
                                         >
-                                            <svg
-                                                width="28"
-                                                height="28"
-                                                viewBox="0 0 28 28"
-                                                fill="none"
-                                            >
-                                                {isPrev ? (
-                                                    <path
-                                                        d="M17 6L9 14L17 22"
-                                                        stroke="white"
-                                                        strokeWidth="2"
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                    />
-                                                ) : (
-                                                    <path
-                                                        d="M11 6L19 14L11 22"
-                                                        stroke="white"
-                                                        strokeWidth="2"
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                    />
-                                                )}
-                                            </svg>
+                                            {arrowIcon ? (
+                                                <img
+                                                    src={arrowIcon}
+                                                    alt=""
+                                                    style={{
+                                                        width: arrowSize,
+                                                        height: arrowSize,
+                                                        objectFit: "contain",
+                                                        transform: isPrev
+                                                            ? "scaleX(-1)"
+                                                            : undefined,
+                                                    }}
+                                                />
+                                            ) : (
+                                                <svg
+                                                    width={arrowSize}
+                                                    height={arrowSize}
+                                                    viewBox="0 0 28 28"
+                                                    fill="none"
+                                                >
+                                                    {isPrev ? (
+                                                        <path
+                                                            d="M17 6L9 14L17 22"
+                                                            stroke="white"
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                        />
+                                                    ) : (
+                                                        <path
+                                                            d="M11 6L19 14L11 22"
+                                                            stroke="white"
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                        />
+                                                    )}
+                                                </svg>
+                                            )}
                                         </motion.div>
                                     </div>
 
@@ -595,6 +614,19 @@ addPropertyControls(FeaturedWorkSlideshow, {
         title: "Label Font",
         controls: "extended",
         hidden: (props: Props) => !props.showLabels,
+    },
+    arrowIcon: {
+        type: ControlType.Image,
+        title: "Arrow Icon",
+    },
+    arrowSize: {
+        type: ControlType.Number,
+        title: "Arrow Size",
+        defaultValue: 28,
+        min: 12,
+        max: 64,
+        step: 2,
+        displayStepper: true,
     },
     activeCardWidth: {
         type: ControlType.Number,
