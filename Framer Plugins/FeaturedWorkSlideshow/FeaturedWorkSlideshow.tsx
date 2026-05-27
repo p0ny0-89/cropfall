@@ -24,7 +24,6 @@ interface Props {
     arrowIcon: string
     arrowSize: number
     responsive: boolean
-    minCardWidth: number
 }
 
 const GAP = 20
@@ -117,7 +116,6 @@ export default function FeaturedWorkSlideshow(props: Props) {
         arrowIcon,
         arrowSize = 28,
         responsive = false,
-        minCardWidth = 400,
     } = props
 
     const isCanvas = RenderTarget.current() === RenderTarget.canvas
@@ -141,14 +139,14 @@ export default function FeaturedWorkSlideshow(props: Props) {
         return () => ro.disconnect()
     }, [responsive])
 
-    // Reference width = full layout at design size (card + 2 thumbs + gaps + padding)
-    const referenceWidth =
-        activeCardWidth + 2 * (thumbSize + GAP) + 64 // 64 = 32px padding × 2
+    // Content width at design size (card + 2 thumbs + 2 gaps) — padding is fixed, not scaled
+    const HORIZONTAL_PADDING = 64 // 32px × 2
+    const layoutWidth = activeCardWidth + 2 * (thumbSize + GAP)
 
     let scale = 1
     if (responsive && containerWidth > 0) {
-        const minScale = minCardWidth / activeCardWidth
-        scale = Math.max(minScale, Math.min(1, containerWidth / referenceWidth))
+        const availableWidth = containerWidth - HORIZONTAL_PADDING
+        scale = Math.min(1, availableWidth / layoutWidth)
     }
 
     const scaledCardWidth = Math.round(activeCardWidth * scale)
@@ -301,6 +299,12 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                     }}
                                     onClick={() => handleClick(projIdx)}
                                     style={{
+                                        width: isActive
+                                            ? scaledCardWidth
+                                            : scaledThumb,
+                                        height: isActive
+                                            ? scaledCardHeight
+                                            : scaledThumb,
                                         flexShrink: 0,
                                         position: "relative",
                                         cursor: isActive
@@ -670,16 +674,6 @@ addPropertyControls(FeaturedWorkSlideshow, {
         defaultValue: false,
         enabledTitle: "On",
         disabledTitle: "Off",
-    },
-    minCardWidth: {
-        type: ControlType.Number,
-        title: "Min Card Width",
-        defaultValue: 400,
-        min: 200,
-        max: 800,
-        step: 10,
-        displayStepper: true,
-        hidden: (props: Props) => !props.responsive,
     },
     activeCardWidth: {
         type: ControlType.Number,
