@@ -222,7 +222,12 @@ export default function FeaturedWorkSlideshow(props: Props) {
     }
 
     const handleClick = (projIdx: number) => {
-        if (isCanvas || projIdx === activeIndex) return
+        if (isCanvas) return
+        if (projIdx === activeIndex) {
+            const link = projects[projIdx]?.link
+            if (link) window.open(link, "_self")
+            return
+        }
         setActiveIndex(projIdx)
     }
 
@@ -322,7 +327,9 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                         flexShrink: 0,
                                         position: "relative",
                                         cursor: isActive
-                                            ? "default"
+                                            ? project.link
+                                                ? "pointer"
+                                                : "default"
                                             : "pointer",
                                         borderRadius: 0,
                                         overflow: "visible",
