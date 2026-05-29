@@ -222,12 +222,9 @@ export default function FeaturedWorkSlideshow(props: Props) {
     }
 
     const handleClick = (projIdx: number) => {
-        if (isCanvas) return
-        if (projIdx === activeIndex) {
-            const link = projects[projIdx]?.link
-            if (link) window.open(link, "_self")
-            return
-        }
+        // Active card navigation is handled by the native <a> overlay so
+        // Framer can resolve internal/CMS link tokens correctly.
+        if (isCanvas || projIdx === activeIndex) return
         setActiveIndex(projIdx)
     }
 
@@ -327,9 +324,7 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                         flexShrink: 0,
                                         position: "relative",
                                         cursor: isActive
-                                            ? project.link
-                                                ? "pointer"
-                                                : "default"
+                                            ? "default"
                                             : "pointer",
                                         borderRadius: 0,
                                         overflow: "visible",
@@ -439,6 +434,20 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                             )}
                                         </motion.div>
                                     </div>
+
+                                    {isActive && project.link && (
+                                        <a
+                                            href={project.link}
+                                            aria-label={project.title}
+                                            style={{
+                                                position: "absolute",
+                                                inset: 0,
+                                                zIndex: 5,
+                                                cursor: "pointer",
+                                                display: "block",
+                                            }}
+                                        />
+                                    )}
 
                                     {showLabels && (
                                         <motion.div
