@@ -1,12 +1,6 @@
 import { addPropertyControls, ControlType, RenderTarget } from "framer"
 import { useState, useEffect, useRef } from "react"
-import {
-    motion,
-    AnimatePresence,
-    LayoutGroup,
-    useScroll,
-    useTransform,
-} from "framer-motion"
+import { motion, AnimatePresence, LayoutGroup } from "framer-motion"
 
 interface Project {
     image: string
@@ -31,7 +25,6 @@ interface Props {
     arrowSize: number
     responsive: boolean
     hoverZoom: number
-    parallaxOffset: number
 }
 
 const GAP = 20
@@ -125,7 +118,6 @@ export default function FeaturedWorkSlideshow(props: Props) {
         arrowSize = 28,
         responsive = false,
         hoverZoom = 1,
-        parallaxOffset = 0,
     } = props
 
     const isCanvas = RenderTarget.current() === RenderTarget.canvas
@@ -150,31 +142,19 @@ export default function FeaturedWorkSlideshow(props: Props) {
         return () => ro.disconnect()
     }, [responsive])
 
-    // Content width at design size (card + 2 thumbs + 2 gaps) — padding is fixed, not scaled
-    const HORIZONTAL_PADDING = 64 // 32px × 2
+    // In responsive mode, remove internal padding so content fills the container edge-to-edge
+    const horizontalPad = responsive ? 0 : 32
     const layoutWidth = activeCardWidth + 2 * (thumbSize + GAP)
 
     let scale = 1
     if (responsive && containerWidth > 0) {
-        const availableWidth = containerWidth - HORIZONTAL_PADDING
-        scale = Math.min(1, availableWidth / layoutWidth)
+        scale = Math.min(1, containerWidth / layoutWidth)
     }
 
     const scaledCardWidth = Math.round(activeCardWidth * scale)
     const scaledCardHeight = Math.round(activeCardHeight * scale)
     const scaledThumb = Math.round(thumbSize * scale)
     const scaledGap = Math.round(GAP * scale)
-
-    /* ---- Parallax scroll ---- */
-    const { scrollYProgress } = useScroll({
-        target: containerRef,
-        offset: ["start end", "end start"],
-    })
-    const imageY = useTransform(
-        scrollYProgress,
-        [0, 1],
-        [-parallaxOffset, parallaxOffset]
-    )
     const scaledArrowSize = Math.round(arrowSize * scale)
 
     const activeImage = projects[activeIndex]?.image
@@ -265,7 +245,7 @@ export default function FeaturedWorkSlideshow(props: Props) {
                 width: "100%",
                 background: backgroundColor,
                 fontFamily: "inherit",
-                padding: "0 32px 80px",
+                padding: `0 ${horizontalPad}px 80px`,
                 boxSizing: "border-box",
                 position: "relative",
             }}
@@ -355,49 +335,33 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                             overflow: "hidden",
                                         }}
                                     >
-                                        {(() => {
-                                            const isHoveredActive =
-                                                isActive &&
-                                                hoveredIndex === projIdx &&
-                                                hoverZoom > 1
-                                            const pxOffset =
-                                                isActive &&
-                                                parallaxOffset > 0
-                                                    ? parallaxOffset
-                                                    : 0
-                                            return (
-                                                <motion.img
-                                                    src={project.image}
-                                                    alt={project.title}
-                                                    animate={{
-                                                        scale: isHoveredActive
-                                                            ? hoverZoom
-                                                            : 1,
-                                                    }}
-                                                    transition={{
-                                                        scale: {
-                                                            duration: 0.5,
-                                                            ease: "easeOut",
-                                                        },
-                                                    }}
-                                                    style={{
-                                                        position: "absolute",
-                                                        top: -pxOffset,
-                                                        left: 0,
-                                                        width: "100%",
-                                                        height: `calc(100% + ${pxOffset * 2}px)`,
-                                                        objectFit: "cover",
-                                                        display: "block",
-                                                        y:
-                                                            isActive &&
-                                                            !isCanvas &&
-                                                            parallaxOffset > 0
-                                                                ? imageY
-                                                                : 0,
-                                                    }}
-                                                />
-                                            )
-                                        })()}
+                                        <motion.img
+                                            src={project.image}
+                                            alt={project.title}
+                                            animate={{
+                                                scale:
+                                                    isActive &&
+                                                    hoveredIndex ===
+                                                        projIdx &&
+                                                    hoverZoom > 1
+                                                        ? hoverZoom
+                                                        : 1,
+                                            }}
+                                            transition={{
+                                                scale: {
+                                                    duration: 0.5,
+                                                    ease: "easeOut",
+                                                },
+                                            }}
+                                            style={{
+                                                position: "absolute",
+                                                inset: 0,
+                                                width: "100%",
+                                                height: "100%",
+                                                objectFit: "cover",
+                                                display: "block",
+                                            }}
+                                        />
 
                                         <motion.div
                                             initial={false}
@@ -741,15 +705,6 @@ addPropertyControls(FeaturedWorkSlideshow, {
         min: 1,
         max: 1.5,
         step: 0.05,
-        displayStepper: true,
-    },
-    parallaxOffset: {
-        type: ControlType.Number,
-        title: "Parallax",
-        defaultValue: 0,
-        min: 0,
-        max: 100,
-        step: 5,
         displayStepper: true,
     },
     responsive: {
