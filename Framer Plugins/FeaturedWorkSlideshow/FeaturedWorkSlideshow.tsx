@@ -633,7 +633,13 @@ addPropertyControls(FeaturedWorkSlideshow, {
                     title: "Location",
                     defaultValue: "LOS ANGELES, CA",
                 },
-                link: { type: ControlType.Link, title: "Link" },
+                link: {
+                    type: ControlType.String,
+                    title: "Link URL",
+                    placeholder: "/work/project-slug or https://…",
+                    description:
+                        "Paste the project's URL. Use a full https:// link to a CMS detail page (works in preview + published), or a relative path like /work/slug (published only).",
+                },
             },
         },
         defaultValue: [
