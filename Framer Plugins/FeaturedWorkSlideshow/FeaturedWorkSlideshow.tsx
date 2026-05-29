@@ -1,6 +1,12 @@
 import { addPropertyControls, ControlType, RenderTarget } from "framer"
 import { useState, useEffect, useRef } from "react"
-import { motion, AnimatePresence, LayoutGroup } from "framer-motion"
+import {
+    motion,
+    AnimatePresence,
+    LayoutGroup,
+    useScroll,
+    useTransform,
+} from "framer-motion"
 
 interface Project {
     image: string
@@ -24,6 +30,8 @@ interface Props {
     arrowIcon: string
     arrowSize: number
     responsive: boolean
+    hoverZoom: number
+    parallaxOffset: number
 }
 
 const GAP = 20
@@ -116,11 +124,14 @@ export default function FeaturedWorkSlideshow(props: Props) {
         arrowIcon,
         arrowSize = 28,
         responsive = false,
+        hoverZoom = 1,
+        parallaxOffset = 0,
     } = props
 
     const isCanvas = RenderTarget.current() === RenderTarget.canvas
     const count = projects.length
     const [activeIndex, setActiveIndex] = useState(0)
+    const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
     const [cornerColors, setCornerColors] =
         useState<[string, string, string, string]>(DEFAULT_CORNERS)
 
@@ -153,6 +164,17 @@ export default function FeaturedWorkSlideshow(props: Props) {
     const scaledCardHeight = Math.round(activeCardHeight * scale)
     const scaledThumb = Math.round(thumbSize * scale)
     const scaledGap = Math.round(GAP * scale)
+
+    /* ---- Parallax scroll ---- */
+    const { scrollYProgress } = useScroll({
+        target: containerRef,
+        offset: ["start end", "end start"],
+    })
+    const imageY = useTransform(
+        scrollYProgress,
+        [0, 1],
+        [-parallaxOffset, parallaxOffset]
+    )
     const scaledArrowSize = Math.round(arrowSize * scale)
 
     const activeImage = projects[activeIndex]?.image
@@ -298,6 +320,18 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                         opacity: { duration: 0.15 },
                                     }}
                                     onClick={() => handleClick(projIdx)}
+                                    onMouseEnter={
+                                        !isCanvas
+                                            ? () =>
+                                                  setHoveredIndex(projIdx)
+                                            : undefined
+                                    }
+                                    onMouseLeave={
+                                        !isCanvas
+                                            ? () =>
+                                                  setHoveredIndex(null)
+                                            : undefined
+                                    }
                                     style={{
                                         width: isActive
                                             ? scaledCardWidth
@@ -321,18 +355,50 @@ export default function FeaturedWorkSlideshow(props: Props) {
                                             overflow: "hidden",
                                         }}
                                     >
-                                        <img
-                                            src={project.image}
-                                            alt={project.title}
-                                            style={{
-                                                position: "absolute",
-                                                inset: 0,
-                                                width: "100%",
-                                                height: "100%",
-                                                objectFit: "cover",
-                                                display: "block",
-                                            }}
-                                        />
+                                        {(() => {
+                                            const isHoveredActive =
+                                                isActive &&
+                                                hoveredIndex === projIdx &&
+                                                hoverZoom > 1
+                                            const pxOffset =
+                                                isActive &&
+                                                parallaxOffset > 0
+                                                    ? parallaxOffset
+                                                    : 0
+                                            return (
+                                                <motion.img
+                                                    src={project.image}
+                                                    alt={project.title}
+                                                    animate={{
+                                                        scale: isHoveredActive
+                                                            ? hoverZoom
+                                                            : 1,
+                                                    }}
+                                                    transition={{
+                                                        scale: {
+                                                            duration: 0.5,
+                                                            ease: "easeOut",
+                                                        },
+                                                    }}
+                                                    style={{
+                                                        position: "absolute",
+                                                        top: -pxOffset,
+                                                        left: 0,
+                                                        width: "100%",
+                                                        height: `calc(100% + ${pxOffset * 2}px)`,
+                                                        objectFit: "cover",
+                                                        display: "block",
+                                                        y:
+                                                            isActive &&
+                                                            !isCanvas &&
+                                                            parallaxOffset > 0
+                                                                ? imageY
+                                                                : 0,
+                                                    }}
+                                                />
+                                            )
+                                        })()}
+
                                         <motion.div
                                             initial={false}
                                             animate={{
@@ -666,6 +732,24 @@ addPropertyControls(FeaturedWorkSlideshow, {
         min: 12,
         max: 64,
         step: 2,
+        displayStepper: true,
+    },
+    hoverZoom: {
+        type: ControlType.Number,
+        title: "Hover Zoom",
+        defaultValue: 1,
+        min: 1,
+        max: 1.5,
+        step: 0.05,
+        displayStepper: true,
+    },
+    parallaxOffset: {
+        type: ControlType.Number,
+        title: "Parallax",
+        defaultValue: 0,
+        min: 0,
+        max: 100,
+        step: 5,
         displayStepper: true,
     },
     responsive: {
