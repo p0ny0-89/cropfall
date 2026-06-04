@@ -82,75 +82,64 @@ function buildBed() {
 }
 
 interface Voice {
-  freq: number;
-  trill: number;
+  freq: number; // pitch of the wing-stroke pulse
   amp: number;
-  dur: [number, number];
+  decay: number; // length of a single pulse (s) — short = sharper chirp
+  pulseGap: [number, number]; // spacing between pulses in a chirp
+  pulses: [number, number]; // how many pulses per chirp
   pan: [number, number];
-  lp: number;
 }
 
-// a few cricket "voices" — different pitches, trill rates, distances & pans
+// distinct cricket "individuals" — different pitch, pulse rate, distance & pan
 const VOICES: Voice[] = [
-  { freq: 4600, trill: 34, amp: 0.085, dur: [0.25, 0.6], pan: [-0.7, -0.2], lp: 6500 },
-  { freq: 5050, trill: 42, amp: 0.06, dur: [0.2, 0.5], pan: [0.2, 0.7], lp: 6000 },
-  { freq: 4250, trill: 28, amp: 0.05, dur: [0.4, 0.9], pan: [-0.2, 0.3], lp: 5200 },
-  { freq: 5450, trill: 48, amp: 0.03, dur: [0.15, 0.35], pan: [0.4, 0.95], lp: 4200 },
+  { freq: 4550, amp: 0.09, decay: 0.018, pulseGap: [0.03, 0.045], pulses: [3, 6], pan: [-0.65, -0.1] },
+  { freq: 5050, amp: 0.07, decay: 0.014, pulseGap: [0.024, 0.036], pulses: [4, 8], pan: [0.1, 0.65] },
+  { freq: 4250, amp: 0.06, decay: 0.022, pulseGap: [0.04, 0.06], pulses: [2, 4], pan: [-0.3, 0.3] },
+  { freq: 5500, amp: 0.04, decay: 0.012, pulseGap: [0.02, 0.03], pulses: [5, 9], pan: [0.35, 0.95] },
 ];
 
-// one cricket trill: a tone gated by a fast LFO, inside an attack/decay envelope
-function chirp(v: Voice) {
+// one wing-stroke: a short tone pulse with a sharp attack and quick decay, plus
+// a tiny down-glide — this reads as a natural "chirp tick", not a synth buzz
+function pulse(t: number, v: Voice, panVal: number) {
   if (!ctx || !master) return;
   const c = ctx;
-  const t = c.currentTime + 0.02;
-  const dur = v.dur[0] + Math.random() * (v.dur[1] - v.dur[0]);
-
+  const f = v.freq * (0.985 + Math.random() * 0.03);
   const osc = c.createOscillator();
   osc.type = "triangle";
-  osc.frequency.value = v.freq * (0.97 + Math.random() * 0.06);
+  osc.frequency.setValueAtTime(f * 1.03, t);
+  osc.frequency.exponentialRampToValueAtTime(f * 0.98, t + v.decay);
 
-  const trillGain = c.createGain();
-  trillGain.gain.value = 0.5;
-  const lfo = c.createOscillator();
-  lfo.type = "square";
-  lfo.frequency.value = v.trill * (0.9 + Math.random() * 0.2);
-  const lfoGain = c.createGain();
-  lfoGain.gain.value = 0.5;
-  lfo.connect(lfoGain).connect(trillGain.gain);
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(v.amp, t + 0.0015);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.0015 + v.decay);
 
-  const env = c.createGain();
-  env.gain.value = 0;
-  const lp = c.createBiquadFilter();
-  lp.type = "lowpass";
-  lp.frequency.value = v.lp;
   const pan = c.createStereoPanner();
-  pan.pan.value = v.pan[0] + Math.random() * (v.pan[1] - v.pan[0]);
+  pan.pan.value = panVal;
 
-  osc.connect(trillGain).connect(env).connect(lp).connect(pan).connect(master);
-
-  env.gain.setValueAtTime(0, t);
-  env.gain.linearRampToValueAtTime(v.amp, t + 0.03);
-  env.gain.setValueAtTime(v.amp, t + dur - 0.05);
-  env.gain.linearRampToValueAtTime(0, t + dur);
-
-  const end = t + dur + 0.05;
+  osc.connect(g).connect(pan).connect(master);
   osc.start(t);
-  lfo.start(t);
-  osc.stop(end);
-  lfo.stop(end);
+  osc.stop(t + v.decay + 0.02);
 }
 
+// a chirp = a quick burst of pulses from one cricket
+function chirp(v: Voice, when?: number) {
+  if (!ctx) return;
+  const t0 = when ?? ctx.currentTime + 0.03;
+  const n = v.pulses[0] + Math.floor(Math.random() * (v.pulses[1] - v.pulses[0] + 1));
+  const gap = v.pulseGap[0] + Math.random() * (v.pulseGap[1] - v.pulseGap[0]);
+  const panVal = v.pan[0] + Math.random() * (v.pan[1] - v.pan[0]);
+  for (let i = 0; i < n; i++) pulse(t0 + i * gap, v, panVal);
+}
+
+// keep several crickets chirping, frequently overlapping
 function loop() {
-  if (!running) return;
-  chirp(VOICES[Math.floor(Math.random() * VOICES.length)]);
-  // occasional answering chirp from another cricket
-  if (Math.random() < 0.35) {
-    window.setTimeout(
-      () => running && chirp(VOICES[Math.floor(Math.random() * VOICES.length)]),
-      120 + Math.random() * 220
-    );
-  }
-  timer = window.setTimeout(loop, 350 + Math.random() * 1100);
+  if (!running || !ctx) return;
+  const pick = () => VOICES[Math.floor(Math.random() * VOICES.length)];
+  chirp(pick());
+  if (Math.random() < 0.6) chirp(pick(), ctx.currentTime + 0.03 + Math.random() * 0.3);
+  if (Math.random() < 0.3) chirp(pick(), ctx.currentTime + 0.05 + Math.random() * 0.5);
+  timer = window.setTimeout(loop, 200 + Math.random() * 650);
 }
 
 export function setSoundEnabled(on: boolean) {
