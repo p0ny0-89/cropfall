@@ -237,12 +237,15 @@ export default function Sky() {
             uniform vec3 uHorizon; uniform vec3 uMid; uniform vec3 uZenith;
             varying float vH;
             void main(){
-              // a haze band hugs the horizon, then the sky colour (blue by day,
-              // purple by night) fills most of the dome overhead
-              float t1 = smoothstep(0.0, 0.1, vH);
-              float t2 = smoothstep(0.05, 0.4, vH);
+              // wide, overlapping transitions so the haze melts gradually into
+              // the sky with no visible banding line
+              float t1 = smoothstep(-0.05, 0.5, vH);
+              float t2 = smoothstep(0.2, 1.05, vH);
               vec3 col = mix(uHorizon, uMid, t1);
               col = mix(col, uZenith, t2);
+              // ordered-ish dither breaks up 8-bit banding in the dark gradient
+              float dither = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+              col += (dither - 0.5) / 180.0;
               gl_FragColor = vec4(col, 1.0);
             }
           `}
