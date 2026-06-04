@@ -35,8 +35,6 @@ body {
   --accent: #ffd98a;
   --accent-soft: rgba(255, 216, 142, 0.16);
   --shadow: 0 16px 46px rgba(34, 22, 6, 0.4);
-  --field-ink: #2c2410;
-  --field-halo: rgba(255, 240, 205, 0.55);
 }
 
 .app.night {
@@ -50,8 +48,6 @@ body {
   --accent: #c0ccff;
   --accent-soft: rgba(150, 168, 230, 0.2);
   --shadow: 0 16px 46px rgba(4, 6, 22, 0.5);
-  --field-ink: #e6ebff;
-  --field-halo: rgba(3, 5, 20, 0.6);
 }
 
 canvas {
@@ -423,20 +419,27 @@ canvas {
 }
 
 /* ---- field-level labels (over the crops) ---- */
+/* minimal glass chip so field labels read in both day and night */
 .status,
 .hint {
   position: absolute;
-  bottom: 34px;
-  color: var(--field-ink);
-  font-size: 12px;
+  bottom: 30px;
+  color: var(--text);
+  font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: 0.24em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  text-shadow: 0 0 16px var(--field-halo), 0 0 4px var(--field-halo);
+  padding: 6px 15px;
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(12px) saturate(1.1);
+  -webkit-backdrop-filter: blur(12px) saturate(1.1);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
 }
 
 .status {
-  left: 36px;
+  left: 30px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -466,9 +469,8 @@ canvas {
 .hint {
   left: 50%;
   transform: translateX(-50%);
-  font-size: 11.5px;
-  opacity: 0.82;
   text-align: center;
+  white-space: nowrap;
 }
 
 .vignette {
