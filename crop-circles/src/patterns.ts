@@ -270,10 +270,12 @@ export function computeCarve(
     // weave: alternating concentric bands lay in crossing directions, plus a
     // per-stalk jitter — mimics the layered crisscross of real crop circles.
     const dc = Math.hypot(px, pz);
-    const band = Math.floor(dc / 1.7);
+    const band = Math.floor(dc / 1.5);
     const layer = band % 2 === 0 ? 1 : -1;
     let ang = Math.atan2(btz, btx);
-    ang += layer * 0.5 + (rand[i] - 0.5) * 0.6 + Math.sin(dc * 0.85 + bt * 14) * 0.22;
+    // stronger alternating-band crossing + per-stalk spread so the flattened
+    // straw tiles in varied directions and leaves fewer bald gaps
+    ang += layer * 0.62 + (rand[i] - 0.5) * 0.95 + Math.sin(dc * 0.85 + bt * 14) * 0.28;
     dirX[i] = Math.cos(ang);
     dirZ[i] = Math.sin(ang);
   }

@@ -8,7 +8,7 @@ import { paletteFor } from "./theme";
 // Single-quad blades (cheaper than the old cross) let us afford a very dense
 // core plus a sparse far skirt that runs the field out past the horizon.
 const CORE_R = 54; // densely planted zone that covers everything you can see
-const CORE_SPACING = 0.185;
+const CORE_SPACING = 0.17;
 const FAR_R = 90; // sparse skirt; fully swallowed by fog, just hides the edge
 const FAR_SPACING = 0.55;
 const COUNT_TARGET = 400000;
@@ -173,16 +173,17 @@ export default function CropField() {
       float fAmt = smoothstep(aCarveT, aCarveT + 0.06, uProgress) * aFlatten;
       vFlat = fAmt; vRand = aRand; vY = y01;
 
-      // (flattened straw keeps the same width as upright stalks — density, not
-      //  thickness, fills the lay)
+      // a gentle widen on downed straw only — a middle ground that knits the
+      // woven lay over the soil while staying far thinner than the old version
+      footprint *= 1.0 + fAmt * 0.75;
 
       float hgt = y01 * aHeight;
       float sway = (y01 * y01) * uWindAmp * (0.55 + 0.6 * aRand)
                  * sin(uTime * 1.7 + aPhase + wx * 0.35 + wz * 0.22);
       vec2 swayOff = normalize(uWind) * sway * (1.0 - fAmt * 0.85);
 
-      // tip the stalk over along its woven brush direction when flattened
-      vec2 flatOff = aDir * hgt * fAmt * 0.95;
+      // tip the stalk over and let it lie longer so the lay tiles more ground
+      vec2 flatOff = aDir * hgt * fAmt * 1.3;
       float curl = sin(y01 * 3.14159 + aRand * 6.28) * 0.12 * fAmt;
 
       vec3 transformed = vec3(
