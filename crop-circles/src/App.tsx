@@ -17,7 +17,7 @@ export default function App() {
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 1.05,
         }}
-        camera={{ fov: 42, near: 0.1, far: 300, position: [0, 30, 46] }}
+        camera={{ fov: 42, near: 0.1, far: 1600, position: [0, 30, 46] }}
       >
         <Scene />
       </Canvas>

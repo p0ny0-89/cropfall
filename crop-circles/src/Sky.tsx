@@ -11,10 +11,16 @@ const DOME_R = 480;
 const STAR_R = 300;
 const STAR_COUNT = 2200;
 
-const dayHorizon = new THREE.Color("#c5a466"); // == fog/bg, so the field blends
-const dayZenith = new THREE.Color("#b9c3c8"); // soft pale sky
-const nightHorizon = new THREE.Color("#1c1e40");
-const nightZenith = new THREE.Color("#080a1e");
+// 3-stop sky gradient: horizon (matches the fog so the field blends) -> a
+// transition band -> zenith. Day reads as a warm-hazy horizon under a blue
+// sky (Breath of the Wild); night is a saturated violet gradient (Monument
+// Valley) rather than flat indigo.
+const dayHorizon = new THREE.Color("#c8a866"); // warm haze == fog
+const dayMid = new THREE.Color("#9fc2dd"); // pale blue band
+const dayZenith = new THREE.Color("#3f86cf"); // blue sky
+const nightHorizon = new THREE.Color("#1c1e40"); // indigo == fog
+const nightMid = new THREE.Color("#46306c"); // violet glow
+const nightZenith = new THREE.Color("#0c0a2c"); // deep violet
 
 export default function Sky() {
   const { camera, gl } = useThree();
@@ -26,6 +32,7 @@ export default function Sky() {
   const domeUniforms = useMemo(
     () => ({
       uHorizon: { value: new THREE.Color() },
+      uMid: { value: new THREE.Color() },
       uZenith: { value: new THREE.Color() },
     }),
     []
@@ -133,6 +140,7 @@ export default function Sky() {
 
     // dome gradient
     domeUniforms.uHorizon.value.copy(dayHorizon).lerp(nightHorizon, nm);
+    domeUniforms.uMid.value.copy(dayMid).lerp(nightMid, nm);
     domeUniforms.uZenith.value.copy(dayZenith).lerp(nightZenith, nm);
 
     // stars
@@ -226,11 +234,16 @@ export default function Sky() {
             }
           `}
           fragmentShader={`
-            uniform vec3 uHorizon; uniform vec3 uZenith;
+            uniform vec3 uHorizon; uniform vec3 uMid; uniform vec3 uZenith;
             varying float vH;
             void main(){
-              float t = smoothstep(-0.04, 0.55, vH);
-              gl_FragColor = vec4(mix(uHorizon, uZenith, t), 1.0);
+              // horizon holds at the fog line, then falls off to the band and
+              // up to the zenith — looking up reveals the open sky
+              float t1 = smoothstep(0.0, 0.13, vH);
+              float t2 = smoothstep(0.1, 0.6, vH);
+              vec3 col = mix(uHorizon, uMid, t1);
+              col = mix(col, uZenith, t2);
+              gl_FragColor = vec4(col, 1.0);
             }
           `}
         />
