@@ -4,10 +4,12 @@ import Scene from "./Scene";
 import ControlPanel from "./ui/ControlPanel";
 import Minimap from "./ui/Minimap";
 import SoundToggle from "./ui/SoundToggle";
+import { useStore } from "./store";
 
 export default function App() {
+  const theme = useStore((s) => s.theme);
   return (
-    <div className="app">
+    <div className={"app" + (theme === "night" ? " night" : "")}>
       <Canvas
         dpr={[1, 1.8]}
         gl={{
