@@ -8,14 +8,19 @@ import { paletteFor } from "./theme";
 // Single-quad blades (cheaper than the old cross) let us afford a very dense
 // core plus a sparse far skirt that runs the field out past the horizon.
 const CORE_R = 54; // densely planted zone that covers everything you can see
-const CORE_SPACING = 0.26;
+const CORE_SPACING = 0.185;
 const FAR_R = 90; // sparse skirt; fully swallowed by fog, just hides the edge
-const FAR_SPACING = 0.7;
-const COUNT_TARGET = 200000;
+const FAR_SPACING = 0.55;
+const COUNT_TARGET = 400000;
+// thin the planting on phones so the high desktop density doesn't tax weak GPUs
+const PERF_MULT =
+  typeof navigator !== "undefined" && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
+    ? 1.7
+    : 1;
 
 // build a thin vertical blade quad, base at y=0
 function makeBlade() {
-  const g = new THREE.PlaneGeometry(0.08, 1, 1, 3);
+  const g = new THREE.PlaneGeometry(0.06, 1, 1, 3);
   g.translate(0, 0.5, 0);
   return g;
 }
@@ -56,22 +61,25 @@ export default function CropField() {
       rand.push(Math.random());
     };
 
+    const coreSp = CORE_SPACING * PERF_MULT;
+    const farSp = FAR_SPACING * PERF_MULT;
+
     // dense core
-    let half = Math.ceil(CORE_R / CORE_SPACING);
+    let half = Math.ceil(CORE_R / coreSp);
     for (let gx = -half; gx <= half; gx++) {
       for (let gz = -half; gz <= half; gz++) {
-        const x = gx * CORE_SPACING + (Math.random() - 0.5) * CORE_SPACING * 0.95;
-        const z = gz * CORE_SPACING + (Math.random() - 0.5) * CORE_SPACING * 0.95;
+        const x = gx * coreSp + (Math.random() - 0.5) * coreSp * 0.95;
+        const z = gz * coreSp + (Math.random() - 0.5) * coreSp * 0.95;
         const dist = Math.hypot(x, z);
         if (dist <= CORE_R) plant(x, z, dist);
       }
     }
     // sparse skirt running out to the horizon
-    half = Math.ceil(FAR_R / FAR_SPACING);
+    half = Math.ceil(FAR_R / farSp);
     for (let gx = -half; gx <= half; gx++) {
       for (let gz = -half; gz <= half; gz++) {
-        const x = gx * FAR_SPACING + (Math.random() - 0.5) * FAR_SPACING * 0.95;
-        const z = gz * FAR_SPACING + (Math.random() - 0.5) * FAR_SPACING * 0.95;
+        const x = gx * farSp + (Math.random() - 0.5) * farSp * 0.95;
+        const z = gz * farSp + (Math.random() - 0.5) * farSp * 0.95;
         const dist = Math.hypot(x, z);
         if (dist > CORE_R && dist <= FAR_R) plant(x, z, dist);
       }
@@ -165,8 +173,8 @@ export default function CropField() {
       float fAmt = smoothstep(aCarveT, aCarveT + 0.06, uProgress) * aFlatten;
       vFlat = fAmt; vRand = aRand; vY = y01;
 
-      // flattened straw spreads much wider, knitting the lay over the soil
-      footprint *= 1.0 + fAmt * 2.2;
+      // (flattened straw keeps the same width as upright stalks — density, not
+      //  thickness, fills the lay)
 
       float hgt = y01 * aHeight;
       float sway = (y01 * y01) * uWindAmp * (0.55 + 0.6 * aRand)

@@ -415,12 +415,30 @@ function Atmosphere() {
   );
 }
 
+// soft round sprite so the drifting particles are circles, not GL squares
+function makeDotTexture() {
+  const s = 64;
+  const c = document.createElement("canvas");
+  c.width = c.height = s;
+  const ctx = c.getContext("2d")!;
+  const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.4, "rgba(255,255,255,0.7)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, s, s);
+  const tex = new THREE.CanvasTexture(c);
+  tex.needsUpdate = true;
+  return tex;
+}
+
 function Pollen() {
   const ref = useRef<THREE.Points>(null!);
   const matRef = useRef<THREE.PointsMaterial>(null!);
   const theme = useStore((s) => s.theme);
   const targetCol = useMemo(() => new THREE.Color(paletteFor(theme).pollen), [theme]);
   const initPollen = useRef(paletteFor(useStore.getState().theme).pollen).current;
+  const dotTex = useMemo(makeDotTexture, []);
   const COUNT = 460;
   const { geometry, velocities } = useMemo(() => {
     const pos = new Float32Array(COUNT * 3);
@@ -455,7 +473,9 @@ function Pollen() {
       <pointsMaterial
         ref={matRef}
         color={initPollen}
-        size={0.14}
+        map={dotTex}
+        alphaMap={dotTex}
+        size={0.16}
         transparent
         opacity={0.55}
         sizeAttenuation
