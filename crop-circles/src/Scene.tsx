@@ -64,6 +64,11 @@ function CameraSystem() {
   const center = useMemo(() => new THREE.Vector3(0, 1.2, 0), []);
   const desired = useMemo(() => new THREE.Vector3(), []);
   const lookTarget = useMemo(() => new THREE.Vector3(), []);
+  const azSpin = useRef(0); // continuous orbit accumulator — never jumps
+  const pSmooth = useRef({ x: 0, y: 0 }); // smoothed pointer (kills jitter)
+  const blend = useRef(0); // 0..1 ease used for the intro + FP-exit glide
+  const blendFrom = useRef(new THREE.Vector3());
+  const prevMode = useRef<string | null>(null);
   const mode = useStore((s) => s.mode);
 
   // seed the walker where the drop-in happened
@@ -166,30 +171,57 @@ function CameraSystem() {
       dampVec(camera.position, fpPos.current, 6, dt); // smooth drop-in, then tracks
       dampVec(look.current, lookTarget, 16, dt); // crisp, responsive mouse-look
       camera.lookAt(look.current);
+      prevMode.current = "fp";
       return;
     }
 
+    // ---- aerial -----------------------------------------------------------
+    // Start an eased glide on first run and whenever we just left first person,
+    // so the camera settles into the orbit instead of snapping.
+    if (prevMode.current !== "aerial") {
+      blendFrom.current.copy(camera.position);
+      blend.current = 0;
+    }
+    prevMode.current = "aerial";
+
+    // smooth the pointer so tiny jitter never shakes the camera
+    pSmooth.current.x = damp(pSmooth.current.x, pointer.x, 5, dt);
+    pSmooth.current.y = damp(pSmooth.current.y, pointer.y, 5, dt);
+
+    // one continuous, slow orbit — accumulating means the target never lurches
+    // backward across the forming -> explore handoff
+    azSpin.current += (s.phase === "explore" ? 0.016 : 0.05) * dt;
+
     let tEl: number, tAz: number, tRad: number;
     if (s.phase === "explore") {
-      const py = (pointer.y + 1) / 2;
-      tEl = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(11, 64, py));
-      tAz = THREE.MathUtils.degToRad(35) * pointer.x + state.clock.elapsedTime * 0.02;
-      tRad = THREE.MathUtils.lerp(17, 36, py);
+      const py = (pSmooth.current.y + 1) / 2;
+      tEl = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(16, 60, py));
+      tAz = azSpin.current + THREE.MathUtils.degToRad(22) * pSmooth.current.x;
+      tRad = THREE.MathUtils.lerp(21, 36, py);
     } else {
       tEl = THREE.MathUtils.degToRad(57);
-      tAz = state.clock.elapsedTime * 0.07;
+      tAz = azSpin.current;
       tRad = 39;
     }
-    el.current = damp(el.current, tEl, 2.4, dt);
-    az.current = damp(az.current, tAz, 2.4, dt);
-    rad.current = damp(rad.current, tRad, 2.4, dt);
+    el.current = damp(el.current, tEl, 1.8, dt);
+    az.current = damp(az.current, tAz, 1.8, dt);
+    rad.current = damp(rad.current, tRad, 1.8, dt);
+
     const ce = Math.cos(el.current);
     desired.set(
       Math.cos(az.current) * ce * rad.current,
       Math.sin(el.current) * rad.current + 1.0,
       Math.sin(az.current) * ce * rad.current
     );
-    dampVec(camera.position, desired, 4, dt); // smoothing also eases the exit from FP
+
+    // position rides the spherical rig directly (crisp orbit, no chase wobble);
+    // the blend only eases the intro and the return from first person
+    blend.current = Math.min(1, blend.current + dt / 1.3);
+    if (blend.current < 1) {
+      camera.position.lerpVectors(blendFrom.current, desired, easeInOut(blend.current));
+    } else {
+      camera.position.copy(desired);
+    }
     dampVec(look.current, center, 4, dt);
     camera.lookAt(look.current);
   });
