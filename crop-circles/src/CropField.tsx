@@ -1,22 +1,23 @@
 import { useMemo, useRef, useLayoutEffect } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { computeCarve, getPattern } from "./patterns";
 import { useStore } from "./store";
 import { paletteFor } from "./theme";
 
-const COUNT_TARGET = 92000;
-const SCATTER_R = 58; // crops reach well past the pattern; fog hides the rim
-const EDGE_FADE = 13; // stalks shrink to nothing over the last few metres
+// Single-quad blades (cheaper than the old cross) let us afford a very dense
+// core plus a sparse far skirt that runs the field out past the horizon.
+const CORE_R = 54; // densely planted zone that covers everything you can see
+const CORE_SPACING = 0.26;
+const FAR_R = 90; // sparse skirt; fully swallowed by fog, just hides the edge
+const FAR_SPACING = 0.7;
+const COUNT_TARGET = 200000;
 
-// build a thin cross-blade (two perpendicular vertical quads), base at y=0
+// build a thin vertical blade quad, base at y=0
 function makeBlade() {
-  const a = new THREE.PlaneGeometry(0.085, 1, 1, 3);
-  a.translate(0, 0.5, 0);
-  const b = a.clone();
-  b.rotateY(Math.PI / 2);
-  return mergeGeometries([a, b])!;
+  const g = new THREE.PlaneGeometry(0.1, 1, 1, 3);
+  g.translate(0, 0.5, 0);
+  return g;
 }
 
 export default function CropField() {
@@ -39,27 +40,40 @@ export default function CropField() {
   const { geometry, count, positions, attrs, uniforms } = useMemo(() => {
     const geometry = makeBlade();
     const ip = paletteFor(useStore.getState().theme); // boot straight into theme
-    const spacing = 0.3;
-    const half = Math.ceil(SCATTER_R / spacing);
     const px: number[] = [];
     const yaw: number[] = [];
     const height: number[] = [];
     const phase: number[] = [];
     const rand: number[] = [];
+
+    const plant = (x: number, z: number, dist: number) => {
+      // only the very outer rim thins, and it's deep in the fog anyway
+      const edge = THREE.MathUtils.clamp((FAR_R - dist) / 6, 0, 1);
+      px.push(x, z);
+      yaw.push(Math.random() * Math.PI * 2);
+      height.push((1.15 + Math.random() * 0.75) * (0.35 + 0.65 * edge));
+      phase.push(Math.random() * Math.PI * 2);
+      rand.push(Math.random());
+    };
+
+    // dense core
+    let half = Math.ceil(CORE_R / CORE_SPACING);
     for (let gx = -half; gx <= half; gx++) {
       for (let gz = -half; gz <= half; gz++) {
-        const x = gx * spacing + (Math.random() - 0.5) * spacing * 0.95;
-        const z = gz * spacing + (Math.random() - 0.5) * spacing * 0.95;
+        const x = gx * CORE_SPACING + (Math.random() - 0.5) * CORE_SPACING * 0.95;
+        const z = gz * CORE_SPACING + (Math.random() - 0.5) * CORE_SPACING * 0.95;
         const dist = Math.hypot(x, z);
-        if (dist > SCATTER_R) continue;
-        // soft rim so the field thins into the haze instead of clipping
-        const edge = THREE.MathUtils.clamp((SCATTER_R - dist) / EDGE_FADE, 0, 1);
-        const h = (1.15 + Math.random() * 0.75) * (0.25 + 0.75 * edge);
-        px.push(x, z);
-        yaw.push(Math.random() * Math.PI * 2);
-        height.push(h);
-        phase.push(Math.random() * Math.PI * 2);
-        rand.push(Math.random());
+        if (dist <= CORE_R) plant(x, z, dist);
+      }
+    }
+    // sparse skirt running out to the horizon
+    half = Math.ceil(FAR_R / FAR_SPACING);
+    for (let gx = -half; gx <= half; gx++) {
+      for (let gz = -half; gz <= half; gz++) {
+        const x = gx * FAR_SPACING + (Math.random() - 0.5) * FAR_SPACING * 0.95;
+        const z = gz * FAR_SPACING + (Math.random() - 0.5) * FAR_SPACING * 0.95;
+        const dist = Math.hypot(x, z);
+        if (dist > CORE_R && dist <= FAR_R) plant(x, z, dist);
       }
     }
     const count = Math.min(px.length / 2, COUNT_TARGET);
@@ -104,7 +118,7 @@ export default function CropField() {
       mesh.setMatrixAt(i, m);
     }
     mesh.instanceMatrix.needsUpdate = true;
-    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), SCATTER_R + 12);
+    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), FAR_R + 12);
   }, [attrs, count, positions]);
 
   // recompute carve targets whenever the pattern changes
@@ -150,8 +164,8 @@ export default function CropField() {
       float fAmt = smoothstep(aCarveT, aCarveT + 0.06, uProgress) * aFlatten;
       vFlat = fAmt; vRand = aRand; vY = y01;
 
-      // flattened straw spreads wider, knitting the lay together over the soil
-      footprint *= 1.0 + fAmt * 0.7;
+      // flattened straw spreads much wider, knitting the lay over the soil
+      footprint *= 1.0 + fAmt * 2.2;
 
       float hgt = y01 * aHeight;
       float sway = (y01 * y01) * uWindAmp * (0.55 + 0.6 * aRand)

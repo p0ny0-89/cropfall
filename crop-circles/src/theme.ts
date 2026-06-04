@@ -35,8 +35,8 @@ export const DAY: Palette = {
   background: "#c5a466",
   // fog == background so distant crops and sky merge — no visible horizon line
   fogColor: "#c5a466",
-  fogNear: 16,
-  fogFar: 72,
+  fogNear: 18,
+  fogFar: 80,
 
   hemiSky: "#fff0cf",
   hemiGround: "#5a4a26",
@@ -50,7 +50,7 @@ export const DAY: Palette = {
   bladeB: "#cdaf4c",
   bladeFlatA: "#c6a956",
   bladeFlatB: "#e4cd83",
-  groundColor: "#8d7639",
+  groundColor: "#a98a47",
   pollen: "#ffe6ad",
 
   orbCore: "#fff4d6",
@@ -65,8 +65,8 @@ export const DAY: Palette = {
 export const NIGHT: Palette = {
   background: "#1c1e40",
   fogColor: "#1c1e40",
-  fogNear: 15,
-  fogFar: 68,
+  fogNear: 16,
+  fogFar: 76,
 
   hemiSky: "#8c9ce0",
   hemiGround: "#13142e",
@@ -80,7 +80,7 @@ export const NIGHT: Palette = {
   bladeB: "#5e6cab",
   bladeFlatA: "#8694d2",
   bladeFlatB: "#b8c2ef",
-  groundColor: "#2c335f",
+  groundColor: "#454f8c",
   pollen: "#d6dfff",
 
   orbCore: "#eef3ff",

@@ -48,38 +48,43 @@ canvas {
   pointer-events: auto;
 }
 
-.title {
+.panel-fab {
   position: absolute;
-  top: 34px;
-  left: 40px;
-  color: var(--ink);
-  mix-blend-mode: multiply;
+  top: 30px;
+  right: 30px;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(38, 30, 16, 0.34);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  border: 1px solid rgba(255, 235, 190, 0.22);
+  color: var(--amber);
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(40, 28, 10, 0.25);
+  transition: background 0.25s, transform 0.25s, color 0.25s;
+  z-index: 2;
 }
 
-.title-main {
-  display: block;
-  font-family: "Cormorant Garamond", serif;
-  font-size: 30px;
-  font-weight: 500;
-  letter-spacing: 0.42em;
-  text-indent: 0.42em;
+.panel-fab:hover {
+  background: rgba(255, 233, 180, 0.16);
+  transform: scale(1.06);
 }
 
-.title-sub {
-  display: block;
-  margin-top: 4px;
-  font-size: 10.5px;
-  font-weight: 400;
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
-  opacity: 0.6;
+.ui-layer.night .panel-fab {
+  background: rgba(20, 22, 48, 0.42);
+  border-color: rgba(180, 194, 240, 0.28);
+  color: #cdd8ff;
 }
 
 .panel {
   position: absolute;
-  top: 50%;
-  right: 34px;
-  transform: translateY(-50%);
+  top: 88px;
+  right: 30px;
+  transform-origin: top right;
   width: 224px;
   padding: 20px 18px;
   background: rgba(38, 30, 16, 0.34);
@@ -112,14 +117,15 @@ canvas {
   align-items: center;
   gap: 11px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 9px 12px;
   background: transparent;
   border: none;
   border-radius: 9px;
-  color: rgba(247, 233, 198, 0.7);
-  font-family: "Inter", sans-serif;
-  font-size: 13px;
-  letter-spacing: 0.05em;
+  color: rgba(247, 233, 198, 0.72);
+  font-family: "Cormorant Garamond", serif;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   text-align: left;
   cursor: pointer;
   transition: background 0.25s, color 0.25s;
@@ -294,7 +300,6 @@ canvas {
 }
 
 /* night: light overlay text, cooler vignette */
-.ui-layer.night .title,
 .ui-layer.night .status,
 .ui-layer.night .hint {
   color: #d7defb;
@@ -310,13 +315,16 @@ canvas {
 }
 
 @media (max-width: 640px) {
+  .panel-fab {
+    top: 20px;
+    right: 20px;
+  }
   .panel {
-    top: auto;
-    bottom: 88px;
-    right: 50%;
-    transform: translateX(50%);
-    width: calc(100vw - 48px);
-    max-width: 360px;
+    top: 76px;
+    right: 20px;
+    left: 20px;
+    width: auto;
+    transform-origin: top center;
   }
   .panel .pattern-list {
     flex-direction: row;
@@ -325,10 +333,6 @@ canvas {
   .pattern-btn {
     width: auto;
     flex: 1 1 40%;
-  }
-  .title {
-    left: 22px;
-    top: 22px;
   }
   .hint {
     display: none;
