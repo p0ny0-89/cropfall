@@ -97,7 +97,6 @@ export default function Minimap() {
         >
           <div className="minimap-title">Overview</div>
           <canvas ref={canvasRef} width={SIZE} height={SIZE} />
-          <div className="minimap-hint">WASD / arrows to walk · scroll out to exit</div>
         </motion.div>
       )}
     </AnimatePresence>

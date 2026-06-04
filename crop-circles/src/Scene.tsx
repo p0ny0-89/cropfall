@@ -52,12 +52,13 @@ function FormationDriver() {
 // exploring, and a walkable first-person "street view" when you drop into a
 // path. Scrolling out of first-person returns to the aerial view.
 function CameraSystem() {
-  const { camera, pointer } = useThree();
+  const { camera, pointer, gl } = useThree();
   const el = useRef(THREE.MathUtils.degToRad(57));
   const az = useRef(0);
   const rad = useRef(39);
   const fpPos = useRef(new THREE.Vector3(0, EYE, 0));
   const fpYaw = useRef(0);
+  const fpPitch = useRef(0);
   const look = useRef(new THREE.Vector3(0, 1.2, 0));
   const keys = useRef<Set<string>>(new Set());
   const center = useMemo(() => new THREE.Vector3(0, 1.2, 0), []);
@@ -65,14 +66,43 @@ function CameraSystem() {
   const lookTarget = useMemo(() => new THREE.Vector3(), []);
   const mode = useStore((s) => s.mode);
 
-  // seed the walker where the drop-in happened
+  // seed the walker where the drop-in happened; release the mouse on exit
   useEffect(() => {
     if (mode === "fp") {
       const s = useStore.getState().fpStart;
       fpPos.current.set(s.x, EYE, s.z);
       fpYaw.current = s.yaw;
+      fpPitch.current = 0;
+    } else if (document.pointerLockElement) {
+      document.exitPointerLock();
     }
   }, [mode]);
+
+  // FPS mouse-look via Pointer Lock; click the field to (re)capture the mouse
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const onMouseMove = (e: MouseEvent) => {
+      if (document.pointerLockElement !== canvas) return;
+      if (useStore.getState().mode !== "fp") return;
+      const sens = 0.0022;
+      fpYaw.current -= e.movementX * sens;
+      fpPitch.current = THREE.MathUtils.clamp(
+        fpPitch.current - e.movementY * sens,
+        -1.15,
+        1.15
+      );
+    };
+    const relock = () => {
+      if (useStore.getState().mode === "fp" && document.pointerLockElement !== canvas)
+        canvas.requestPointerLock?.();
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    canvas.addEventListener("click", relock);
+    return () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      canvas.removeEventListener("click", relock);
+    };
+  }, [gl]);
 
   // keyboard nav + scroll-to-exit
   useEffect(() => {
@@ -104,12 +134,14 @@ function CameraSystem() {
 
     if (s.mode === "fp") {
       const k = keys.current;
-      const turn = 1.8 * dt;
+      const turn = 1.8 * dt; // arrow-key turning (fallback when no mouse-look)
       const speed = 8.5 * dt;
-      if (k.has("ArrowLeft") || k.has("KeyA")) fpYaw.current += turn;
-      if (k.has("ArrowRight") || k.has("KeyD")) fpYaw.current -= turn;
+      if (k.has("ArrowLeft")) fpYaw.current += turn;
+      if (k.has("ArrowRight")) fpYaw.current -= turn;
       const fx = Math.sin(fpYaw.current);
       const fz = Math.cos(fpYaw.current);
+      const rx = Math.cos(fpYaw.current); // strafe (right) vector
+      const rz = -Math.sin(fpYaw.current);
       if (k.has("ArrowUp") || k.has("KeyW")) {
         fpPos.current.x += fx * speed;
         fpPos.current.z += fz * speed;
@@ -118,13 +150,13 @@ function CameraSystem() {
         fpPos.current.x -= fx * speed;
         fpPos.current.z -= fz * speed;
       }
-      if (k.has("KeyQ")) {
-        fpPos.current.x += fz * speed;
-        fpPos.current.z -= fx * speed;
+      if (k.has("KeyD")) {
+        fpPos.current.x += rx * speed;
+        fpPos.current.z += rz * speed;
       }
-      if (k.has("KeyE")) {
-        fpPos.current.x -= fz * speed;
-        fpPos.current.z += fx * speed;
+      if (k.has("KeyA")) {
+        fpPos.current.x -= rx * speed;
+        fpPos.current.z -= rz * speed;
       }
       const d = Math.hypot(fpPos.current.x, fpPos.current.z);
       const maxR = 52;
@@ -138,9 +170,15 @@ function CameraSystem() {
       fpLive.z = fpPos.current.z;
       fpLive.yaw = fpYaw.current;
 
-      lookTarget.set(fpPos.current.x + fx * 6, 1.32, fpPos.current.z + fz * 6);
+      // look direction from yaw + mouse pitch
+      const cp = Math.cos(fpPitch.current);
+      lookTarget.set(
+        fpPos.current.x + fx * cp * 6,
+        EYE + Math.sin(fpPitch.current) * 6,
+        fpPos.current.z + fz * cp * 6
+      );
       dampVec(camera.position, fpPos.current, 6, dt); // smooth drop-in, then tracks
-      dampVec(look.current, lookTarget, 6, dt);
+      dampVec(look.current, lookTarget, 16, dt); // crisp, responsive mouse-look
       camera.lookAt(look.current);
       return;
     }
@@ -176,6 +214,7 @@ function CameraSystem() {
 function DropInteraction() {
   const markerRef = useRef<THREE.Group>(null!);
   const ringRef = useRef<THREE.Mesh>(null!);
+  const { gl } = useThree();
   const mode = useStore((s) => s.mode);
   const theme = useStore((s) => s.theme);
   const color = useMemo(
@@ -210,6 +249,8 @@ function DropInteraction() {
     if (hit) {
       useStore.getState().enterFirstPerson(e.point.x, e.point.z, Math.atan2(hit.tx, hit.tz));
       hide();
+      // capture the mouse for FPS look (must run inside the click gesture)
+      gl.domElement.requestPointerLock?.();
     }
   };
 

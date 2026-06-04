@@ -110,10 +110,12 @@ export default function ControlPanel() {
       <motion.div
         className="hint"
         initial={{ opacity: 0 }}
-        animate={{ opacity: phase === "explore" && mode === "aerial" ? 1 : 0 }}
+        animate={{ opacity: phase === "explore" ? 1 : 0 }}
         transition={{ duration: 1 }}
       >
-        move cursor to explore · click a glowing path to step inside
+        {mode === "fp"
+          ? "W A S D / arrows to move · move mouse to look · scroll out or esc to exit"
+          : "move cursor to explore · click a glowing path to step inside"}
       </motion.div>
 
       <div className="vignette" />
