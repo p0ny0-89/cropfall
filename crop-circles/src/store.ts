@@ -21,7 +21,9 @@ interface State {
 export const useStore = create<State>((set, get) => ({
   patternId: PATTERNS[0].id,
   phase: "intro",
-  theme: "day",
+  // night is the default: you first witness the formation being carved
+  // overnight, then can switch to day to see it the morning after.
+  theme: "night",
   formProgress: 0,
   formToken: 0,
   toggleTheme: () => set((s) => ({ theme: s.theme === "day" ? "night" : "day" })),

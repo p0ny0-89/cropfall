@@ -5,7 +5,7 @@ import CropField from "./CropField";
 import Ground from "./Ground";
 import Orbs from "./Orbs";
 import { useStore } from "./store";
-import { DAY, paletteFor } from "./theme";
+import { paletteFor } from "./theme";
 
 const FORM_DURATION = 6.5; // seconds for a full formation
 
@@ -42,9 +42,9 @@ function FormationDriver() {
 // during exploration (cursor low = drop toward ground level).
 function CameraRig() {
   const { camera, pointer } = useThree();
-  const el = useRef(THREE.MathUtils.degToRad(62));
+  const el = useRef(THREE.MathUtils.degToRad(57));
   const az = useRef(0);
-  const rad = useRef(46);
+  const rad = useRef(39);
   const center = useMemo(() => new THREE.Vector3(0, 1.2, 0), []);
 
   useFrame((state, dt) => {
@@ -53,13 +53,13 @@ function CameraRig() {
 
     if (phase === "explore") {
       const py = (pointer.y + 1) / 2;
-      tEl = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(14, 66, py));
+      tEl = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(11, 64, py));
       tAz = THREE.MathUtils.degToRad(35) * pointer.x + state.clock.elapsedTime * 0.02;
-      tRad = THREE.MathUtils.lerp(20, 40, py);
+      tRad = THREE.MathUtils.lerp(17, 36, py);
     } else {
-      tEl = THREE.MathUtils.degToRad(60);
+      tEl = THREE.MathUtils.degToRad(57);
       tAz = state.clock.elapsedTime * 0.07;
-      tRad = 46;
+      tRad = 39;
     }
 
     el.current = THREE.MathUtils.damp(el.current, tEl, 2.2, dt);
@@ -83,6 +83,8 @@ function Atmosphere() {
   const { scene } = useThree();
   const theme = useStore((s) => s.theme);
   const pal = paletteFor(theme);
+  // captured once → JSX boots straight into the load-time palette (no flash)
+  const init = useRef(paletteFor(useStore.getState().theme)).current;
 
   const hemi = useRef<THREE.HemisphereLight>(null!);
   const amb = useRef<THREE.AmbientLight>(null!);
@@ -104,9 +106,9 @@ function Atmosphere() {
   );
 
   useEffect(() => {
-    if (!scene.background) scene.background = new THREE.Color(DAY.background);
-    if (!scene.fog) scene.fog = new THREE.Fog(DAY.fogColor, DAY.fogNear, DAY.fogFar);
-  }, [scene]);
+    if (!scene.background) scene.background = new THREE.Color(init.background);
+    if (!scene.fog) scene.fog = new THREE.Fog(init.fogColor, init.fogNear, init.fogFar);
+  }, [scene, init]);
 
   useFrame((_, dt) => {
     const k = 1 - Math.pow(0.0001, dt);
@@ -141,22 +143,22 @@ function Atmosphere() {
 
   return (
     <>
-      <hemisphereLight ref={hemi} args={["#fff0cf", "#5a4a26", 0.85]} />
-      <ambientLight ref={amb} intensity={0.28} />
-      <directionalLight ref={dir} position={[-34, 30, 22]} intensity={1.7} color="#ffdca0" />
+      <hemisphereLight ref={hemi} args={[init.hemiSky, init.hemiGround, init.hemiInt]} />
+      <ambientLight ref={amb} color={init.ambientColor} intensity={init.ambientInt} />
+      <directionalLight ref={dir} position={[-34, 30, 22]} intensity={init.dirInt} color={init.dirColor} />
 
       {/* moon — only really visible at night */}
       <group ref={moon} position={[-78, 52, -96]}>
         <mesh ref={moonCore}>
           <sphereGeometry args={[10, 32, 32]} />
-          <meshBasicMaterial color="#eaf0ff" transparent opacity={0} toneMapped={false} fog={false} />
+          <meshBasicMaterial color="#eaf0ff" transparent opacity={init.moon} toneMapped={false} fog={false} />
         </mesh>
         <mesh ref={moonHalo}>
           <sphereGeometry args={[18, 32, 32]} />
           <meshBasicMaterial
             color="#9fb4ff"
             transparent
-            opacity={0}
+            opacity={init.moon * 0.4}
             blending={THREE.AdditiveBlending}
             depthWrite={false}
             toneMapped={false}
@@ -173,6 +175,7 @@ function Pollen() {
   const matRef = useRef<THREE.PointsMaterial>(null!);
   const theme = useStore((s) => s.theme);
   const targetCol = useMemo(() => new THREE.Color(paletteFor(theme).pollen), [theme]);
+  const initPollen = useRef(paletteFor(useStore.getState().theme).pollen).current;
   const COUNT = 460;
   const { geometry, velocities } = useMemo(() => {
     const pos = new Float32Array(COUNT * 3);
@@ -206,7 +209,7 @@ function Pollen() {
     <points ref={ref} geometry={geometry}>
       <pointsMaterial
         ref={matRef}
-        color="#ffe6ad"
+        color={initPollen}
         size={0.14}
         transparent
         opacity={0.55}

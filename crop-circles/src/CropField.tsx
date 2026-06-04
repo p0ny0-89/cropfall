@@ -6,13 +6,13 @@ import { computeCarve, getPattern } from "./patterns";
 import { useStore } from "./store";
 import { paletteFor } from "./theme";
 
-const COUNT_TARGET = 52000;
-const SCATTER_R = 48; // crops reach well past the pattern; fog hides the rim
-const EDGE_FADE = 9; // stalks shrink to nothing over the last few metres
+const COUNT_TARGET = 92000;
+const SCATTER_R = 58; // crops reach well past the pattern; fog hides the rim
+const EDGE_FADE = 13; // stalks shrink to nothing over the last few metres
 
 // build a thin cross-blade (two perpendicular vertical quads), base at y=0
 function makeBlade() {
-  const a = new THREE.PlaneGeometry(0.07, 1, 1, 4);
+  const a = new THREE.PlaneGeometry(0.085, 1, 1, 3);
   a.translate(0, 0.5, 0);
   const b = a.clone();
   b.rotateY(Math.PI / 2);
@@ -38,7 +38,8 @@ export default function CropField() {
   // scatter dense stalks on a jittered grid inside the field disc
   const { geometry, count, positions, attrs, uniforms } = useMemo(() => {
     const geometry = makeBlade();
-    const spacing = 0.36;
+    const ip = paletteFor(useStore.getState().theme); // boot straight into theme
+    const spacing = 0.3;
     const half = Math.ceil(SCATTER_R / spacing);
     const px: number[] = [];
     const yaw: number[] = [];
@@ -76,11 +77,11 @@ export default function CropField() {
       uTime: { value: 0 },
       uProgress: { value: 0 },
       uWind: { value: new THREE.Vector2(0.85, 0.52) },
-      uWindAmp: { value: 0.32 },
-      uColA: { value: new THREE.Color("#a98c2d") },
-      uColB: { value: new THREE.Color("#cdaf4c") },
-      uFlatA: { value: new THREE.Color("#c6a956") },
-      uFlatB: { value: new THREE.Color("#e4cd83") },
+      uWindAmp: { value: ip.windAmp },
+      uColA: { value: new THREE.Color(ip.bladeA) },
+      uColB: { value: new THREE.Color(ip.bladeB) },
+      uFlatA: { value: new THREE.Color(ip.bladeFlatA) },
+      uFlatB: { value: new THREE.Color(ip.bladeFlatB) },
     };
     return { geometry, count, positions, attrs, uniforms };
   }, []);
@@ -148,6 +149,9 @@ export default function CropField() {
 
       float fAmt = smoothstep(aCarveT, aCarveT + 0.06, uProgress) * aFlatten;
       vFlat = fAmt; vRand = aRand; vY = y01;
+
+      // flattened straw spreads wider, knitting the lay together over the soil
+      footprint *= 1.0 + fAmt * 0.7;
 
       float hgt = y01 * aHeight;
       float sway = (y01 * y01) * uWindAmp * (0.55 + 0.6 * aRand)
