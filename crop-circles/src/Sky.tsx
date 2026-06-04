@@ -15,12 +15,12 @@ const STAR_COUNT = 2200;
 // transition band -> zenith. Day reads as a warm-hazy horizon under a blue
 // sky (Breath of the Wild); night is a saturated violet gradient (Monument
 // Valley) rather than flat indigo.
-const dayHorizon = new THREE.Color("#c8a866"); // warm haze == fog
-const dayMid = new THREE.Color("#9fc2dd"); // pale blue band
-const dayZenith = new THREE.Color("#3f86cf"); // blue sky
-const nightHorizon = new THREE.Color("#1c1e40"); // indigo == fog
-const nightMid = new THREE.Color("#46306c"); // violet glow
-const nightZenith = new THREE.Color("#0c0a2c"); // deep violet
+const dayHorizon = new THREE.Color("#dcd6c8"); // white-ish haze == fog
+const dayMid = new THREE.Color("#bcd0e2"); // pale blue band
+const dayZenith = new THREE.Color("#3a73bd"); // blue sky
+const nightHorizon = new THREE.Color("#3a4690"); // light-blue haze == fog
+const nightMid = new THREE.Color("#352a72"); // blue-violet
+const nightZenith = new THREE.Color("#241a52"); // deep purple
 
 export default function Sky() {
   const { camera, gl } = useThree();
@@ -237,10 +237,10 @@ export default function Sky() {
             uniform vec3 uHorizon; uniform vec3 uMid; uniform vec3 uZenith;
             varying float vH;
             void main(){
-              // horizon holds at the fog line, then falls off to the band and
-              // up to the zenith — looking up reveals the open sky
-              float t1 = smoothstep(0.0, 0.13, vH);
-              float t2 = smoothstep(0.1, 0.6, vH);
+              // a haze band hugs the horizon, then the sky colour (blue by day,
+              // purple by night) fills most of the dome overhead
+              float t1 = smoothstep(0.0, 0.1, vH);
+              float t2 = smoothstep(0.05, 0.4, vH);
               vec3 col = mix(uHorizon, uMid, t1);
               col = mix(col, uZenith, t2);
               gl_FragColor = vec4(col, 1.0);

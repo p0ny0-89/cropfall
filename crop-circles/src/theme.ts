@@ -32,9 +32,10 @@ export interface Palette {
 }
 
 export const DAY: Palette = {
-  background: "#c5a466",
-  // fog == background so distant crops and sky merge — no visible horizon line
-  fogColor: "#c5a466",
+  background: "#dcd6c8",
+  // pale haze at the horizon (the field fades into a soft white-ish haze under
+  // the blue sky) — fog == sky horizon so the field blends in seamlessly
+  fogColor: "#dcd6c8",
   fogNear: 18,
   fogFar: 80,
 
@@ -63,8 +64,9 @@ export const DAY: Palette = {
 };
 
 export const NIGHT: Palette = {
-  background: "#1c1e40",
-  fogColor: "#1c1e40",
+  background: "#3a4690",
+  // light-blue moonlit haze at the horizon, falling off to purple overhead
+  fogColor: "#3a4690",
   fogNear: 16,
   fogFar: 76,
 
