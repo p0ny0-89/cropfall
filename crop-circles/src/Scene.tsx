@@ -4,6 +4,7 @@ import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import CropField from "./CropField";
 import Ground from "./Ground";
 import Orbs from "./Orbs";
+import Sky from "./Sky";
 import { useStore } from "./store";
 import { paletteFor } from "./theme";
 import { pathHit } from "./patterns";
@@ -334,9 +335,6 @@ function Atmosphere() {
   const hemi = useRef<THREE.HemisphereLight>(null!);
   const amb = useRef<THREE.AmbientLight>(null!);
   const dir = useRef<THREE.DirectionalLight>(null!);
-  const moon = useRef<THREE.Group>(null!);
-  const moonCore = useRef<THREE.Mesh>(null!);
-  const moonHalo = useRef<THREE.Mesh>(null!);
 
   const t = useMemo(
     () => ({
@@ -377,13 +375,6 @@ function Atmosphere() {
       dir.current.color.lerp(t.dir, k);
       dir.current.intensity = THREE.MathUtils.damp(dir.current.intensity, pal.dirInt, 3, dt);
     }
-    if (moonCore.current && moonHalo.current) {
-      const cm = moonCore.current.material as THREE.MeshBasicMaterial;
-      const hm = moonHalo.current.material as THREE.MeshBasicMaterial;
-      cm.opacity = THREE.MathUtils.damp(cm.opacity, pal.moon, 3, dt);
-      hm.opacity = THREE.MathUtils.damp(hm.opacity, pal.moon * 0.4, 3, dt);
-      moon.current.visible = cm.opacity > 0.01;
-    }
   });
 
   return (
@@ -391,26 +382,6 @@ function Atmosphere() {
       <hemisphereLight ref={hemi} args={[init.hemiSky, init.hemiGround, init.hemiInt]} />
       <ambientLight ref={amb} color={init.ambientColor} intensity={init.ambientInt} />
       <directionalLight ref={dir} position={[-34, 30, 22]} intensity={init.dirInt} color={init.dirColor} />
-
-      {/* moon — only really visible at night */}
-      <group ref={moon} position={[-78, 52, -96]}>
-        <mesh ref={moonCore}>
-          <sphereGeometry args={[10, 32, 32]} />
-          <meshBasicMaterial color="#eaf0ff" transparent opacity={init.moon} toneMapped={false} fog={false} />
-        </mesh>
-        <mesh ref={moonHalo}>
-          <sphereGeometry args={[18, 32, 32]} />
-          <meshBasicMaterial
-            color="#9fb4ff"
-            transparent
-            opacity={init.moon * 0.4}
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-            toneMapped={false}
-            fog={false}
-          />
-        </mesh>
-      </group>
     </>
   );
 }
@@ -491,6 +462,7 @@ export default function Scene() {
   return (
     <>
       <Atmosphere />
+      <Sky />
       <Ground />
       <CropField />
       <Orbs />
