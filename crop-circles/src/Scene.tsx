@@ -52,7 +52,7 @@ function FormationDriver() {
 // exploring, and a walkable first-person "street view" when you drop into a
 // path. Scrolling out of first-person returns to the aerial view.
 function CameraSystem() {
-  const { camera, pointer, gl } = useThree();
+  const { camera, pointer } = useThree();
   const el = useRef(THREE.MathUtils.degToRad(57));
   const az = useRef(0);
   const rad = useRef(39);
@@ -66,43 +66,15 @@ function CameraSystem() {
   const lookTarget = useMemo(() => new THREE.Vector3(), []);
   const mode = useStore((s) => s.mode);
 
-  // seed the walker where the drop-in happened; release the mouse on exit
+  // seed the walker where the drop-in happened
   useEffect(() => {
     if (mode === "fp") {
       const s = useStore.getState().fpStart;
       fpPos.current.set(s.x, EYE, s.z);
       fpYaw.current = s.yaw;
       fpPitch.current = 0;
-    } else if (document.pointerLockElement) {
-      document.exitPointerLock();
     }
   }, [mode]);
-
-  // FPS mouse-look via Pointer Lock; click the field to (re)capture the mouse
-  useEffect(() => {
-    const canvas = gl.domElement;
-    const onMouseMove = (e: MouseEvent) => {
-      if (document.pointerLockElement !== canvas) return;
-      if (useStore.getState().mode !== "fp") return;
-      const sens = 0.0022;
-      fpYaw.current -= e.movementX * sens;
-      fpPitch.current = THREE.MathUtils.clamp(
-        fpPitch.current - e.movementY * sens,
-        -1.15,
-        1.15
-      );
-    };
-    const relock = () => {
-      if (useStore.getState().mode === "fp" && document.pointerLockElement !== canvas)
-        canvas.requestPointerLock?.();
-    };
-    document.addEventListener("mousemove", onMouseMove);
-    canvas.addEventListener("click", relock);
-    return () => {
-      document.removeEventListener("mousemove", onMouseMove);
-      canvas.removeEventListener("click", relock);
-    };
-  }, [gl]);
 
   // keyboard nav + scroll-to-exit
   useEffect(() => {
@@ -134,14 +106,28 @@ function CameraSystem() {
 
     if (s.mode === "fp") {
       const k = keys.current;
-      const turn = 1.8 * dt; // arrow-key turning (fallback when no mouse-look)
+      const turn = 1.8 * dt;
       const speed = 8.5 * dt;
+
+      // mouse-look: cursor offset from centre turns the view (dead-zone in the
+      // middle). No pointer-lock needed, so it works inside any iframe.
+      const dz = 0.22;
+      const lookRate = 2.2;
+      const edge = (v: number) =>
+        Math.abs(v) > dz ? (v - Math.sign(v) * dz) / (1 - dz) : 0;
+      fpYaw.current -= edge(pointer.x) * lookRate * dt;
+      fpPitch.current = THREE.MathUtils.clamp(
+        fpPitch.current + edge(pointer.y) * lookRate * dt,
+        -1.1,
+        1.1
+      );
+
       if (k.has("ArrowLeft")) fpYaw.current += turn;
       if (k.has("ArrowRight")) fpYaw.current -= turn;
       const fx = Math.sin(fpYaw.current);
       const fz = Math.cos(fpYaw.current);
-      const rx = Math.cos(fpYaw.current); // strafe (right) vector
-      const rz = -Math.sin(fpYaw.current);
+      const rx = -Math.cos(fpYaw.current); // screen-right strafe vector
+      const rz = Math.sin(fpYaw.current);
       if (k.has("ArrowUp") || k.has("KeyW")) {
         fpPos.current.x += fx * speed;
         fpPos.current.z += fz * speed;
@@ -214,7 +200,6 @@ function CameraSystem() {
 function DropInteraction() {
   const markerRef = useRef<THREE.Group>(null!);
   const ringRef = useRef<THREE.Mesh>(null!);
-  const { gl } = useThree();
   const mode = useStore((s) => s.mode);
   const theme = useStore((s) => s.theme);
   const color = useMemo(
@@ -249,8 +234,6 @@ function DropInteraction() {
     if (hit) {
       useStore.getState().enterFirstPerson(e.point.x, e.point.z, Math.atan2(hit.tx, hit.tz));
       hide();
-      // capture the mouse for FPS look (must run inside the click gesture)
-      gl.domElement.requestPointerLock?.();
     }
   };
 
