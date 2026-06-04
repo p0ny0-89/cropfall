@@ -3,6 +3,7 @@ import * as THREE from "three";
 import Scene from "./Scene";
 import ControlPanel from "./ui/ControlPanel";
 import Minimap from "./ui/Minimap";
+import SoundToggle from "./ui/SoundToggle";
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
         <Scene />
       </Canvas>
       <Minimap />
+      <SoundToggle />
       <ControlPanel />
     </div>
   );

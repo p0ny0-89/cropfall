@@ -204,6 +204,59 @@ canvas {
   transform: scale(0.97);
 }
 
+/* ---- ambience mute/unmute ---- */
+.sound-toggle {
+  position: absolute;
+  bottom: 30px;
+  right: 30px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(38, 30, 16, 0.34);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  border: 1px solid rgba(255, 235, 190, 0.22);
+  color: var(--amber);
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(40, 28, 10, 0.25);
+  transition: background 0.25s, transform 0.2s, color 0.25s;
+  z-index: 12;
+  pointer-events: auto;
+}
+
+.sound-toggle:hover {
+  background: rgba(255, 233, 180, 0.16);
+  transform: scale(1.06);
+}
+
+.sound-toggle.on {
+  color: #fff3da;
+  border-color: rgba(255, 226, 160, 0.5);
+  background: rgba(255, 226, 160, 0.16);
+}
+
+.sound-toggle.night {
+  background: rgba(20, 22, 48, 0.42);
+  border-color: rgba(180, 194, 240, 0.28);
+  color: #cdd8ff;
+}
+
+.sound-toggle.night.on {
+  color: #eef3ff;
+  border-color: rgba(180, 194, 240, 0.6);
+  background: rgba(120, 134, 191, 0.3);
+}
+
+@media (max-width: 640px) {
+  .sound-toggle {
+    bottom: 20px;
+    right: 20px;
+  }
+}
+
 /* ---- Formation Lab ---- */
 .lab {
   margin-top: 12px;

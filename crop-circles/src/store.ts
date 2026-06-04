@@ -17,6 +17,7 @@ interface State {
   patternId: string; // preset id, or "custom" for Formation Lab
   phase: Phase;
   theme: Theme;
+  sound: boolean; // ambience on/off
   mode: ViewMode; // aerial orbit vs first-person street view
   fpStart: { x: number; z: number; yaw: number }; // where a drop-in begins
   formProgress: number; // 0..1 carve progress, drives the shader reveal
@@ -30,6 +31,7 @@ interface State {
   setProgress: (n: number) => void;
   reform: () => void;
   toggleTheme: () => void;
+  toggleSound: () => void;
   enterFirstPerson: (x: number, z: number, yaw: number) => void;
   exitFirstPerson: () => void;
   updateCustom: (partial: Partial<CustomSettings>) => void;
@@ -46,6 +48,7 @@ export const useStore = create<State>((set, get) => ({
   // night is the default: you first witness the formation being carved
   // overnight, then can switch to day to see it the morning after.
   theme: "night",
+  sound: false,
   mode: "aerial",
   fpStart: { x: 0, z: 0, yaw: 0 },
   formProgress: 0,
@@ -53,6 +56,7 @@ export const useStore = create<State>((set, get) => ({
   customSettings: DEFAULT_CUSTOM,
   activePattern: getPattern(PATTERNS[0].id),
   toggleTheme: () => set((s) => ({ theme: s.theme === "day" ? "night" : "day" })),
+  toggleSound: () => set((s) => ({ sound: !s.sound })),
   selectPattern: (id) => {
     if (id === get().patternId && get().phase === "forming") return;
     set((s) => ({
