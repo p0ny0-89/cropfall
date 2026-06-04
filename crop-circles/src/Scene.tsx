@@ -6,7 +6,7 @@ import Ground from "./Ground";
 import Orbs from "./Orbs";
 import { useStore } from "./store";
 import { paletteFor } from "./theme";
-import { getPattern, pathHit } from "./patterns";
+import { pathHit } from "./patterns";
 import { fpLive } from "./fpLive";
 
 const FORM_DURATION = 6.5; // seconds for a full formation
@@ -215,7 +215,7 @@ function DropInteraction() {
   const droppableAt = (e: ThreeEvent<PointerEvent | MouseEvent>) => {
     const s = useStore.getState();
     if (s.mode !== "aerial" || s.phase !== "explore") return null;
-    const pat = getPattern(s.patternId);
+    const pat = s.activePattern;
     const hit = pathHit(e.point.x, e.point.z, pat);
     return hit.dist < pat.radius * 1.3 ? hit : null;
   };

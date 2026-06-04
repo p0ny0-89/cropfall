@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PATTERNS } from "../patterns";
 import { useStore } from "../store";
+import FormationLab from "./FormationLab";
 
 function GearIcon() {
   return (
@@ -75,7 +76,30 @@ export default function ControlPanel() {
                   {p.label}
                 </button>
               ))}
+              <button
+                className={"pattern-btn lab-entry" + (patternId === "custom" ? " active" : "")}
+                onClick={() => selectPattern("custom")}
+              >
+                <span className="dot" />
+                Formation Lab
+              </button>
             </div>
+
+            <AnimatePresence initial={false}>
+              {patternId === "custom" && (
+                <motion.div
+                  key="lab"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                  style={{ overflow: "hidden" }}
+                >
+                  <FormationLab />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <button className="reform-btn" onClick={reform}>
               ↻ Reform Field
             </button>

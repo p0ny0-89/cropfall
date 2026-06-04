@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { NUM_ORBS, getPattern, type Stroke, type Vec2 } from "./patterns";
+import { NUM_ORBS, type Stroke, type Vec2 } from "./patterns";
 import { useStore } from "./store";
 import { paletteFor } from "./theme";
 
@@ -28,7 +28,7 @@ interface OrbVisual {
 }
 
 export default function Orbs() {
-  const patternId = useStore((s) => s.patternId);
+  const activePattern = useStore((s) => s.activePattern);
   const theme = useStore((s) => s.theme);
   const refs = useRef<OrbVisual[]>([]);
   const opacity = useRef<number[]>(new Array(NUM_ORBS).fill(0));
@@ -54,12 +54,12 @@ export default function Orbs() {
 
   // group strokes per orb, ordered by time
   const perOrb = useMemo(() => {
-    const pat = getPattern(patternId);
+    const pat = activePattern;
     const lists: Stroke[][] = Array.from({ length: NUM_ORBS }, () => []);
     for (const s of pat.strokes) lists[s.orb % NUM_ORBS].push(s);
     for (const l of lists) l.sort((a, b) => a.tStart - b.tStart);
     return { lists, radius: pat.radius };
-  }, [patternId]);
+  }, [activePattern]);
 
   useFrame((_, dt) => {
     const { phase, formProgress } = useStore.getState();
@@ -109,8 +109,10 @@ export default function Orbs() {
         }
       }
 
-      // exploration / idle: orbs drift up and fade away
-      const wantVisible = phase === "forming" || (phase === "intro" && p > 0);
+      // exploration / idle: orbs drift up and fade away. Orbs with no assigned
+      // strokes (e.g. a low orb-count custom formation) stay hidden.
+      const wantVisible =
+        strokes.length > 0 && (phase === "forming" || (phase === "intro" && p > 0));
       const targetOpacity = wantVisible ? 1 : 0;
       if (!wantVisible) ty = REST_Y;
       opacity.current[o] = THREE.MathUtils.damp(opacity.current[o], targetOpacity, 3, dt);

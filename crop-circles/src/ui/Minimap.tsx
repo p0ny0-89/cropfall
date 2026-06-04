@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../store";
-import { getPattern } from "../patterns";
 import { fpLive } from "../fpLive";
 
 const SIZE = 152;
@@ -11,7 +10,7 @@ const VIEW_R = 54; // world radius mapped onto the minimap
 // relative to the formation.
 export default function Minimap() {
   const mode = useStore((s) => s.mode);
-  const patternId = useStore((s) => s.patternId);
+  const activePattern = useStore((s) => s.activePattern);
   const theme = useStore((s) => s.theme);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -20,7 +19,7 @@ export default function Minimap() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
-    const pat = getPattern(patternId);
+    const pat = activePattern;
     const night = theme === "night";
     const cx = SIZE / 2;
     const cy = SIZE / 2;
@@ -83,7 +82,7 @@ export default function Minimap() {
     };
     draw();
     return () => cancelAnimationFrame(raf);
-  }, [mode, patternId, theme]);
+  }, [mode, activePattern, theme]);
 
   return (
     <AnimatePresence>

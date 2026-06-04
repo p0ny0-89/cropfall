@@ -314,3 +314,233 @@ export function pathHit(
   }
   return { dist: Math.sqrt(best), tx: btx, tz: btz };
 }
+
+// ===========================================================================
+// Formation Lab — procedural generators
+// ---------------------------------------------------------------------------
+// Every generator emits the shared UNIVERSAL FORMAT: a list of paths, where a
+// path is an array of { x, z } points. `buildPattern` then converts that into
+// the same `Pattern` shape the presets use, so the orb animation and crop
+// flattening pipeline is reused verbatim — generators never touch it.
+//
+// (A future "Draw Glyph" mode just needs to output FormationPaths from a 2D
+//  sketch and call buildPattern — no other changes required.)
+// ===========================================================================
+
+export type FormationPoint = { x: number; z: number };
+export type FormationPaths = FormationPoint[][];
+export type PatternType = "rings" | "spiral" | "radial" | "mandala";
+
+export interface CustomSettings {
+  patternType: PatternType;
+  radius: number; // overall size
+  lineWidth: number; // flattened-path thickness (-> Pattern.radius)
+  complexity: number; // rings=ring count, spiral=turns, radial=cross-rings, mandala=layers
+  symmetry: number; // radial duplication: 3,4,6,8,12,16
+  rotation: number; // radians, around field centre
+  noise: number; // organic distortion amount
+  orbCount: number; // how many orbs carve it (1..NUM_ORBS)
+}
+
+export const SYMMETRY_VALUES = [3, 4, 6, 8, 12, 16];
+export const MAX_FORMATION_R = 22;
+
+export const DEFAULT_CUSTOM: CustomSettings = {
+  patternType: "mandala",
+  radius: 17,
+  lineWidth: 1.3,
+  complexity: 4,
+  symmetry: 8,
+  rotation: 0,
+  noise: 0.4,
+  orbCount: 4,
+};
+
+const clampN = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+function circlePts(cx: number, cz: number, r: number, segs = 64): FormationPoint[] {
+  const pts: FormationPoint[] = [];
+  for (let i = 0; i <= segs; i++) {
+    const a = (i / segs) * Math.PI * 2;
+    pts.push({ x: cx + Math.cos(a) * r, z: cz + Math.sin(a) * r });
+  }
+  return pts;
+}
+
+function linePts(x0: number, z0: number, x1: number, z1: number, segs = 24): FormationPoint[] {
+  const pts: FormationPoint[] = [];
+  for (let i = 0; i <= segs; i++) {
+    const t = i / segs;
+    pts.push({ x: x0 + (x1 - x0) * t, z: z0 + (z1 - z0) * t });
+  }
+  return pts;
+}
+
+// -- generators (each returns FormationPaths) -------------------------------
+
+export function generateRings(s: CustomSettings): FormationPaths {
+  const rings = clampN(Math.round(s.complexity), 1, 8);
+  const paths: FormationPaths = [];
+  for (let k = 1; k <= rings; k++) {
+    const r = (s.radius * k) / rings;
+    paths.push(circlePts(0, 0, r, Math.max(48, Math.round(r * 9))));
+  }
+  return paths;
+}
+
+export function generateSpiral(s: CustomSettings): FormationPaths {
+  const arms = clampN(Math.round(s.symmetry), 1, 16);
+  const turns = clampN(s.complexity, 1, 8);
+  const paths: FormationPaths = [];
+  const segs = Math.max(90, Math.round(turns * 70));
+  for (let a = 0; a < arms; a++) {
+    const off = (a / arms) * Math.PI * 2;
+    const pts: FormationPoint[] = [];
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs;
+      const ang = off + t * turns * Math.PI * 2;
+      const r = t * s.radius;
+      pts.push({ x: Math.cos(ang) * r, z: Math.sin(ang) * r });
+    }
+    paths.push(pts);
+  }
+  return paths;
+}
+
+export function generateRadial(s: CustomSettings): FormationPaths {
+  const arms = clampN(Math.round(s.symmetry), 3, 16);
+  const rings = clampN(Math.round(s.complexity), 0, 6); // concentric cross-rings
+  const paths: FormationPaths = [];
+  for (let a = 0; a < arms; a++) {
+    const ang = (a / arms) * Math.PI * 2;
+    paths.push(
+      linePts(0, 0, Math.cos(ang) * s.radius, Math.sin(ang) * s.radius, Math.max(24, Math.round(s.radius * 2)))
+    );
+  }
+  for (let j = 1; j <= rings; j++) {
+    const r = (s.radius * j) / (rings + 1);
+    paths.push(circlePts(0, 0, r, Math.max(48, Math.round(r * 9))));
+  }
+  return paths;
+}
+
+export function generateMandala(s: CustomSettings): FormationPaths {
+  const sym = clampN(Math.round(s.symmetry), 3, 16);
+  const layers = clampN(Math.round(s.complexity), 1, 8);
+  const paths: FormationPaths = [];
+  paths.push(circlePts(0, 0, s.radius * 0.12, 40)); // hub
+  for (let j = 1; j <= layers; j++) {
+    const r = (s.radius * j) / layers;
+    paths.push(circlePts(0, 0, r, Math.max(48, Math.round(r * 9))));
+  }
+  const petalR = s.radius * 0.55;
+  const petalSize = s.radius * 0.16;
+  for (let i = 0; i < sym; i++) {
+    const a = (i / sym) * Math.PI * 2;
+    paths.push(circlePts(Math.cos(a) * petalR, Math.sin(a) * petalR, petalSize, 40));
+  }
+  for (let i = 0; i < sym; i++) {
+    const a = (i / sym) * Math.PI * 2;
+    paths.push(
+      linePts(Math.cos(a) * s.radius * 0.18, Math.sin(a) * s.radius * 0.18, Math.cos(a) * s.radius, Math.sin(a) * s.radius)
+    );
+  }
+  return paths;
+}
+
+// -- transforms (operate on flat point arrays) ------------------------------
+
+export function applyRotation(points: FormationPoint[], rotation: number): FormationPoint[] {
+  if (!rotation) return points;
+  const c = Math.cos(rotation);
+  const sn = Math.sin(rotation);
+  return points.map((p) => ({ x: p.x * c - p.z * sn, z: p.x * sn + p.z * c }));
+}
+
+// Smooth, deterministic perpendicular wobble — readable but less "computer
+// perfect". Same settings (same seed) always give the same shape.
+export function applyOrganicNoise(
+  points: FormationPoint[],
+  amount: number,
+  seed = 0
+): FormationPoint[] {
+  if (amount <= 0 || points.length < 2) return points;
+  const last = points.length - 1;
+  return points.map((p, i) => {
+    const prev = points[Math.max(0, i - 1)];
+    const next = points[Math.min(last, i + 1)];
+    let tx = next.x - prev.x;
+    let tz = next.z - prev.z;
+    const tl = Math.hypot(tx, tz) || 1;
+    tx /= tl;
+    tz /= tl;
+    const n = Math.sin(i * 0.35 + seed) * 0.6 + Math.sin(i * 0.13 + seed * 2.1 + 1.7) * 0.4;
+    const d = n * amount;
+    return { x: p.x - tz * d, z: p.z + tx * d }; // displace along the normal
+  });
+}
+
+export function normalizeFormationPoints(points: FormationPoint[]): FormationPoint[] {
+  return points.map((p) => {
+    const d = Math.hypot(p.x, p.z);
+    if (d > MAX_FORMATION_R) {
+      const k = MAX_FORMATION_R / d;
+      return { x: p.x * k, z: p.z * k };
+    }
+    return p;
+  });
+}
+
+export const formationGenerators: Record<PatternType, (s: CustomSettings) => FormationPaths> = {
+  rings: generateRings,
+  spiral: generateSpiral,
+  radial: generateRadial,
+  mandala: generateMandala,
+};
+
+export function generateCustomFormation(s: CustomSettings): FormationPaths {
+  const seed = s.complexity * 131.1 + s.symmetry * 17.7 + s.rotation * 53.3 + s.patternType.length * 7;
+  const base = (formationGenerators[s.patternType] ?? generateMandala)(s);
+  return base.map((path) => {
+    let q = applyRotation(path, s.rotation);
+    q = applyOrganicNoise(q, s.noise, seed);
+    q = normalizeFormationPoints(q);
+    return q;
+  });
+}
+
+// -- universal: paths -> Pattern (shared with the presets' pipeline) --------
+
+// Auto-schedules paths across orbs and the formation timeline. Inner/earlier
+// paths carve first; up to `orbCount` paths carve in parallel per wave.
+export function buildPattern(
+  id: string,
+  label: string,
+  paths: FormationPaths,
+  lineWidth: number,
+  orbCount: number
+): Pattern {
+  const valid = paths.filter((p) => p.length > 1);
+  const K = clampN(Math.round(orbCount), 1, NUM_ORBS);
+  const waves = Math.max(1, Math.ceil(valid.length / K));
+  const strokes: Stroke[] = valid.map((p, i) => {
+    const wave = Math.floor(i / K);
+    return {
+      points: p.map((q) => [q.x, q.z] as Vec2),
+      tStart: wave / waves,
+      tEnd: (wave + 1) / waves,
+      orb: i % K,
+    };
+  });
+  return { id, label, strokes, radius: lineWidth };
+}
+
+export function buildCustomPattern(settings: CustomSettings): Pattern {
+  return buildPattern(
+    "custom",
+    "Formation Lab",
+    generateCustomFormation(settings),
+    settings.lineWidth,
+    settings.orbCount
+  );
+}

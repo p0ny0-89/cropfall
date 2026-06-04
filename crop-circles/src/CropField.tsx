@@ -1,7 +1,7 @@
 import { useMemo, useRef, useLayoutEffect } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { computeCarve, getPattern } from "./patterns";
+import { computeCarve } from "./patterns";
 import { useStore } from "./store";
 import { paletteFor } from "./theme";
 
@@ -22,7 +22,7 @@ function makeBlade() {
 
 export default function CropField() {
   const meshRef = useRef<THREE.InstancedMesh>(null!);
-  const patternId = useStore((s) => s.patternId);
+  const activePattern = useStore((s) => s.activePattern);
   const theme = useStore((s) => s.theme);
 
   const target = useMemo(() => {
@@ -121,10 +121,9 @@ export default function CropField() {
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), FAR_R + 12);
   }, [attrs, count, positions]);
 
-  // recompute carve targets whenever the pattern changes
+  // recompute carve targets whenever the active pattern changes (preset or custom)
   useLayoutEffect(() => {
-    const pattern = getPattern(patternId);
-    const carve = computeCarve(positions, count, pattern, attrs.aRand);
+    const carve = computeCarve(positions, count, activePattern, attrs.aRand);
     attrs.aFlatten.set(carve.flatten);
     attrs.aCarveT.set(carve.carveT);
     for (let i = 0; i < count; i++) {
@@ -135,7 +134,7 @@ export default function CropField() {
     (g.getAttribute("aFlatten") as THREE.BufferAttribute).needsUpdate = true;
     (g.getAttribute("aCarveT") as THREE.BufferAttribute).needsUpdate = true;
     (g.getAttribute("aDir") as THREE.BufferAttribute).needsUpdate = true;
-  }, [patternId, attrs, count, positions]);
+  }, [activePattern, attrs, count, positions]);
 
   // inject bending + coloring into a standard (lit) material
   const onBeforeCompile = (shader: THREE.WebGLProgramParametersWithUniforms) => {
