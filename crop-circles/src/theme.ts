@@ -65,10 +65,12 @@ export const DAY: Palette = {
 
 export const NIGHT: Palette = {
   background: "#3a4690",
-  // light-blue moonlit haze at the horizon, falling off to purple overhead
+  // light-blue moonlit haze at the horizon, falling off to purple overhead.
+  // The field colours are kept close to this haze so the crops melt into the
+  // horizon (one continuous gradient) rather than reading as a dark band.
   fogColor: "#3a4690",
-  fogNear: 16,
-  fogFar: 76,
+  fogNear: 12,
+  fogFar: 66,
 
   hemiSky: "#8c9ce0",
   hemiGround: "#13142e",
@@ -78,11 +80,11 @@ export const NIGHT: Palette = {
   dirColor: "#c6d1f6",
   dirInt: 1.2,
 
-  bladeA: "#414b80",
-  bladeB: "#5e6cab",
-  bladeFlatA: "#8694d2",
-  bladeFlatB: "#b8c2ef",
-  groundColor: "#454f8c",
+  bladeA: "#515d96",
+  bladeB: "#707fbf",
+  bladeFlatA: "#99a6dc",
+  bladeFlatB: "#c6cff3",
+  groundColor: "#4b5599",
   pollen: "#d6dfff",
 
   orbCore: "#eef3ff",
