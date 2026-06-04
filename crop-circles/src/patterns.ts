@@ -155,24 +155,11 @@ function radial(): Pattern {
   return { id: "radial", label: "Radial", strokes, radius: 1.25 };
 }
 
-function glyph(): Pattern {
-  // abstract: crescent + central disc + two satellite discs + connecting arc
-  const strokes: Stroke[] = [];
-  strokes.push({ points: dot(0, 0, 3.5), tStart: 0, tEnd: 0.2, orb: 0 });
-  strokes.push({ points: arc(0, 0, 14, Math.PI * 0.15, Math.PI * 1.15), tStart: 0.15, tEnd: 0.5, orb: 1 });
-  strokes.push({ points: arc(0, 0, 11, Math.PI * 0.25, Math.PI * 1.05), tStart: 0.3, tEnd: 0.62, orb: 2 });
-  strokes.push({ points: dot(-13, 7, 2.4), tStart: 0.55, tEnd: 0.74, orb: 3 });
-  strokes.push({ points: dot(12, 9, 2.4), tStart: 0.6, tEnd: 0.8, orb: 0 });
-  strokes.push({ points: line(-13, 7, 12, 9), tStart: 0.78, tEnd: 1.0, orb: 1 });
-  return { id: "glyph", label: "Glyph", strokes, radius: 1.2 };
-}
-
 export const PATTERNS: Pattern[] = [
   classicRings(),
   spiralPattern(),
   mandala(),
   radial(),
-  glyph(),
 ];
 
 export function getPattern(id: string): Pattern {
@@ -291,4 +278,39 @@ export function computeCarve(
     dirZ[i] = Math.sin(ang);
   }
   return { flatten, carveT, dirX, dirZ };
+}
+
+// Distance from a world point to the nearest flattened path, plus the path's
+// tangent there. Used to highlight / drop into the downed crop trails.
+export function pathHit(
+  x: number,
+  z: number,
+  pattern: Pattern
+): { dist: number; tx: number; tz: number } {
+  let best = Infinity;
+  let btx = 0;
+  let btz = 1;
+  for (const s of pattern.strokes) {
+    const pts = s.points;
+    const m = pts.length;
+    for (let j = 0; j < m; j++) {
+      const dx = x - pts[j][0];
+      const dz = z - pts[j][1];
+      const d2 = dx * dx + dz * dz;
+      if (d2 < best) {
+        best = d2;
+        const k = j < m - 1 ? j + 1 : j - 1;
+        let tx = pts[k][0] - pts[j][0];
+        let tz = pts[k][1] - pts[j][1];
+        if (j === m - 1) {
+          tx = -tx;
+          tz = -tz;
+        }
+        const tl = Math.hypot(tx, tz) || 1;
+        btx = tx / tl;
+        btz = tz / tl;
+      }
+    }
+  }
+  return { dist: Math.sqrt(best), tx: btx, tz: btz };
 }

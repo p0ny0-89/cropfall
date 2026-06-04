@@ -2,6 +2,7 @@ import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import Scene from "./Scene";
 import ControlPanel from "./ui/ControlPanel";
+import Minimap from "./ui/Minimap";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
       >
         <Scene />
       </Canvas>
+      <Minimap />
       <ControlPanel />
     </div>
   );

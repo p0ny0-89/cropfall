@@ -15,7 +15,7 @@ const COUNT_TARGET = 200000;
 
 // build a thin vertical blade quad, base at y=0
 function makeBlade() {
-  const g = new THREE.PlaneGeometry(0.1, 1, 1, 3);
+  const g = new THREE.PlaneGeometry(0.08, 1, 1, 3);
   g.translate(0, 0.5, 0);
   return g;
 }
@@ -154,7 +154,9 @@ export default function CropField() {
       "#include <begin_vertex>",
       `
       float y01 = position.y;
-      float bx = position.x; float bz = position.z;
+      // taper to a point so blades read as stalks up close, not flat slabs
+      float taper = 1.0 - y01 * 0.62;
+      float bx = position.x * taper; float bz = position.z;
       float cy = cos(aYaw); float sy = sin(aYaw);
       vec2 footprint = mat2(cy, -sy, sy, cy) * vec2(bx, bz);
 

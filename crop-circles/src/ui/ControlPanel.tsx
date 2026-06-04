@@ -3,13 +3,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { PATTERNS } from "../patterns";
 import { useStore } from "../store";
 
-// concentric-rings glyph — the "open formations" affordance
-function RingsIcon() {
+function GearIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
-      <circle cx="10" cy="10" r="8" strokeWidth="1.1" opacity="0.55" />
-      <circle cx="10" cy="10" r="5" strokeWidth="1.1" opacity="0.8" />
-      <circle cx="10" cy="10" r="1.7" fill="currentColor" stroke="none" />
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <circle cx="12" cy="12" r="3.2" strokeWidth="1.6" />
+      <path
+        d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M7.3 16.7l-2.1 2.1"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -25,6 +27,7 @@ function CloseIcon() {
 export default function ControlPanel() {
   const patternId = useStore((s) => s.patternId);
   const phase = useStore((s) => s.phase);
+  const mode = useStore((s) => s.mode);
   const theme = useStore((s) => s.theme);
   const selectPattern = useStore((s) => s.selectPattern);
   const reform = useStore((s) => s.reform);
@@ -38,9 +41,16 @@ export default function ControlPanel() {
       <button
         className={"panel-fab" + (open ? " open" : "")}
         onClick={() => setOpen((o) => !o)}
-        aria-label={open ? "Hide formations" : "Show formations"}
+        aria-label={open ? "Hide settings" : "Show settings"}
       >
-        {open ? <CloseIcon /> : <RingsIcon />}
+        {open ? (
+          <CloseIcon />
+        ) : (
+          <>
+            <GearIcon />
+            <span className="fab-label">Settings</span>
+          </>
+        )}
       </button>
 
       <AnimatePresence>
@@ -100,10 +110,10 @@ export default function ControlPanel() {
       <motion.div
         className="hint"
         initial={{ opacity: 0 }}
-        animate={{ opacity: phase === "explore" ? 1 : 0 }}
+        animate={{ opacity: phase === "explore" && mode === "aerial" ? 1 : 0 }}
         transition={{ duration: 1 }}
       >
-        move cursor to explore · up for aerial · down for ground level
+        move cursor to explore · click a glowing path to step inside
       </motion.div>
 
       <div className="vignette" />

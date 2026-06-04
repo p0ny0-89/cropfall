@@ -1,16 +1,26 @@
 import { useRef, useMemo, useEffect } from "react";
 import * as THREE from "three";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import CropField from "./CropField";
 import Ground from "./Ground";
 import Orbs from "./Orbs";
 import { useStore } from "./store";
 import { paletteFor } from "./theme";
+import { getPattern, pathHit } from "./patterns";
+import { fpLive } from "./fpLive";
 
 const FORM_DURATION = 6.5; // seconds for a full formation
+const EYE = 1.7; // first-person eye height
 
 function easeInOut(t: number) {
   return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+}
+
+const damp = THREE.MathUtils.damp;
+function dampVec(v: THREE.Vector3, t: THREE.Vector3, rate: number, dt: number) {
+  v.x = damp(v.x, t.x, rate, dt);
+  v.y = damp(v.y, t.y, rate, dt);
+  v.z = damp(v.z, t.z, rate, dt);
 }
 
 // Drives formProgress 0->1 and flips phase intro->forming->explore.
@@ -38,20 +48,105 @@ function FormationDriver() {
   return null;
 }
 
-// Cinematic camera: auto-orbiting aerial during formation, pointer parallax
-// during exploration (cursor low = drop toward ground level).
-function CameraRig() {
+// Camera: auto-orbiting aerial during formation, pointer parallax while
+// exploring, and a walkable first-person "street view" when you drop into a
+// path. Scrolling out of first-person returns to the aerial view.
+function CameraSystem() {
   const { camera, pointer } = useThree();
   const el = useRef(THREE.MathUtils.degToRad(57));
   const az = useRef(0);
   const rad = useRef(39);
+  const fpPos = useRef(new THREE.Vector3(0, EYE, 0));
+  const fpYaw = useRef(0);
+  const look = useRef(new THREE.Vector3(0, 1.2, 0));
+  const keys = useRef<Set<string>>(new Set());
   const center = useMemo(() => new THREE.Vector3(0, 1.2, 0), []);
+  const desired = useMemo(() => new THREE.Vector3(), []);
+  const lookTarget = useMemo(() => new THREE.Vector3(), []);
+  const mode = useStore((s) => s.mode);
+
+  // seed the walker where the drop-in happened
+  useEffect(() => {
+    if (mode === "fp") {
+      const s = useStore.getState().fpStart;
+      fpPos.current.set(s.x, EYE, s.z);
+      fpYaw.current = s.yaw;
+    }
+  }, [mode]);
+
+  // keyboard nav + scroll-to-exit
+  useEffect(() => {
+    const kd = (e: KeyboardEvent) => {
+      if (useStore.getState().mode === "fp") {
+        const nav = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+        if (nav.includes(e.code)) e.preventDefault();
+        if (e.code === "Escape") useStore.getState().exitFirstPerson();
+      }
+      keys.current.add(e.code);
+    };
+    const ku = (e: KeyboardEvent) => keys.current.delete(e.code);
+    const wheel = (e: WheelEvent) => {
+      if (useStore.getState().mode === "fp" && e.deltaY > 0)
+        useStore.getState().exitFirstPerson();
+    };
+    window.addEventListener("keydown", kd);
+    window.addEventListener("keyup", ku);
+    window.addEventListener("wheel", wheel, { passive: true });
+    return () => {
+      window.removeEventListener("keydown", kd);
+      window.removeEventListener("keyup", ku);
+      window.removeEventListener("wheel", wheel);
+    };
+  }, []);
 
   useFrame((state, dt) => {
-    const phase = useStore.getState().phase;
-    let tEl: number, tAz: number, tRad: number;
+    const s = useStore.getState();
 
-    if (phase === "explore") {
+    if (s.mode === "fp") {
+      const k = keys.current;
+      const turn = 1.8 * dt;
+      const speed = 8.5 * dt;
+      if (k.has("ArrowLeft") || k.has("KeyA")) fpYaw.current += turn;
+      if (k.has("ArrowRight") || k.has("KeyD")) fpYaw.current -= turn;
+      const fx = Math.sin(fpYaw.current);
+      const fz = Math.cos(fpYaw.current);
+      if (k.has("ArrowUp") || k.has("KeyW")) {
+        fpPos.current.x += fx * speed;
+        fpPos.current.z += fz * speed;
+      }
+      if (k.has("ArrowDown") || k.has("KeyS")) {
+        fpPos.current.x -= fx * speed;
+        fpPos.current.z -= fz * speed;
+      }
+      if (k.has("KeyQ")) {
+        fpPos.current.x += fz * speed;
+        fpPos.current.z -= fx * speed;
+      }
+      if (k.has("KeyE")) {
+        fpPos.current.x -= fz * speed;
+        fpPos.current.z += fx * speed;
+      }
+      const d = Math.hypot(fpPos.current.x, fpPos.current.z);
+      const maxR = 52;
+      if (d > maxR) {
+        fpPos.current.x *= maxR / d;
+        fpPos.current.z *= maxR / d;
+      }
+      fpPos.current.y = EYE;
+
+      fpLive.x = fpPos.current.x;
+      fpLive.z = fpPos.current.z;
+      fpLive.yaw = fpYaw.current;
+
+      lookTarget.set(fpPos.current.x + fx * 6, 1.32, fpPos.current.z + fz * 6);
+      dampVec(camera.position, fpPos.current, 6, dt); // smooth drop-in, then tracks
+      dampVec(look.current, lookTarget, 6, dt);
+      camera.lookAt(look.current);
+      return;
+    }
+
+    let tEl: number, tAz: number, tRad: number;
+    if (s.phase === "explore") {
       const py = (pointer.y + 1) / 2;
       tEl = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(11, 64, py));
       tAz = THREE.MathUtils.degToRad(35) * pointer.x + state.clock.elapsedTime * 0.02;
@@ -61,20 +156,114 @@ function CameraRig() {
       tAz = state.clock.elapsedTime * 0.07;
       tRad = 39;
     }
-
-    el.current = THREE.MathUtils.damp(el.current, tEl, 2.2, dt);
-    az.current = THREE.MathUtils.damp(az.current, tAz, 2.2, dt);
-    rad.current = THREE.MathUtils.damp(rad.current, tRad, 2.2, dt);
-
+    el.current = damp(el.current, tEl, 2.4, dt);
+    az.current = damp(az.current, tAz, 2.4, dt);
+    rad.current = damp(rad.current, tRad, 2.4, dt);
     const ce = Math.cos(el.current);
-    camera.position.set(
+    desired.set(
       Math.cos(az.current) * ce * rad.current,
       Math.sin(el.current) * rad.current + 1.0,
       Math.sin(az.current) * ce * rad.current
     );
-    camera.lookAt(center);
+    dampVec(camera.position, desired, 4, dt); // smoothing also eases the exit from FP
+    dampVec(look.current, center, 4, dt);
+    camera.lookAt(look.current);
   });
   return null;
+}
+
+// Hover-to-highlight the downed paths and click to drop into first person.
+function DropInteraction() {
+  const markerRef = useRef<THREE.Group>(null!);
+  const ringRef = useRef<THREE.Mesh>(null!);
+  const mode = useStore((s) => s.mode);
+  const theme = useStore((s) => s.theme);
+  const color = useMemo(
+    () => new THREE.Color(theme === "night" ? "#d2dcff" : "#fff0c2"),
+    [theme]
+  );
+
+  const hide = () => {
+    if (markerRef.current) markerRef.current.visible = false;
+    document.body.style.cursor = "";
+  };
+
+  const droppableAt = (e: ThreeEvent<PointerEvent | MouseEvent>) => {
+    const s = useStore.getState();
+    if (s.mode !== "aerial" || s.phase !== "explore") return null;
+    const pat = getPattern(s.patternId);
+    const hit = pathHit(e.point.x, e.point.z, pat);
+    return hit.dist < pat.radius * 1.3 ? hit : null;
+  };
+
+  const onMove = (e: ThreeEvent<PointerEvent>) => {
+    const hit = droppableAt(e);
+    if (hit) {
+      markerRef.current.position.set(e.point.x, 0, e.point.z);
+      markerRef.current.visible = true;
+      document.body.style.cursor = "pointer";
+    } else hide();
+  };
+
+  const onClick = (e: ThreeEvent<MouseEvent>) => {
+    const hit = droppableAt(e);
+    if (hit) {
+      useStore.getState().enterFirstPerson(e.point.x, e.point.z, Math.atan2(hit.tx, hit.tz));
+      hide();
+    }
+  };
+
+  useEffect(() => {
+    if (mode !== "aerial") hide();
+  }, [mode]);
+
+  useFrame((state) => {
+    if (markerRef.current?.visible) {
+      const p = 1 + Math.sin(state.clock.elapsedTime * 3.5) * 0.12;
+      ringRef.current.scale.setScalar(p);
+      (ringRef.current.material as THREE.MeshBasicMaterial).color.copy(color);
+    }
+  });
+
+  return (
+    <>
+      {/* invisible but event-receiving plane over the field */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0.03, 0]}
+        onPointerMove={onMove}
+        onPointerOut={hide}
+        onClick={onClick}
+      >
+        <circleGeometry args={[60, 64]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+
+      <group ref={markerRef} visible={false}>
+        <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]}>
+          <ringGeometry args={[1.0, 1.55, 48]} />
+          <meshBasicMaterial
+            color="#d2dcff"
+            transparent
+            opacity={0.85}
+            side={THREE.DoubleSide}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </mesh>
+        <mesh position={[0, 2.4, 0]} rotation={[Math.PI, 0, 0]}>
+          <coneGeometry args={[0.45, 1.0, 4]} />
+          <meshBasicMaterial
+            color="#d2dcff"
+            transparent
+            opacity={0.7}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </mesh>
+      </group>
+    </>
+  );
 }
 
 // Background, fog, lights and the moon — all lerp smoothly between palettes so
@@ -230,8 +419,9 @@ export default function Scene() {
       <CropField />
       <Orbs />
       <Pollen />
+      <DropInteraction />
 
-      <CameraRig />
+      <CameraSystem />
       <FormationDriver />
     </>
   );
