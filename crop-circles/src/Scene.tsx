@@ -1,10 +1,11 @@
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useEffect } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
 import CropField from "./CropField";
 import Ground from "./Ground";
 import Orbs from "./Orbs";
 import { useStore } from "./store";
+import { DAY, paletteFor } from "./theme";
 
 const FORM_DURATION = 6.5; // seconds for a full formation
 
@@ -51,13 +52,11 @@ function CameraRig() {
     let tEl: number, tAz: number, tRad: number;
 
     if (phase === "explore") {
-      // pointer.y up (=1) -> aerial top-down; down (=-1) -> ground level
       const py = (pointer.y + 1) / 2;
-      tEl = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(15, 66, py));
+      tEl = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(14, 66, py));
       tAz = THREE.MathUtils.degToRad(35) * pointer.x + state.clock.elapsedTime * 0.02;
-      tRad = THREE.MathUtils.lerp(22, 40, py);
+      tRad = THREE.MathUtils.lerp(20, 40, py);
     } else {
-      // forming / intro: strong aerial angle, slow orbit
       tEl = THREE.MathUtils.degToRad(60);
       tAz = state.clock.elapsedTime * 0.07;
       tRad = 46;
@@ -78,16 +77,110 @@ function CameraRig() {
   return null;
 }
 
+// Background, fog, lights and the moon — all lerp smoothly between palettes so
+// toggling day/night feels like the light actually changing.
+function Atmosphere() {
+  const { scene } = useThree();
+  const theme = useStore((s) => s.theme);
+  const pal = paletteFor(theme);
+
+  const hemi = useRef<THREE.HemisphereLight>(null!);
+  const amb = useRef<THREE.AmbientLight>(null!);
+  const dir = useRef<THREE.DirectionalLight>(null!);
+  const moon = useRef<THREE.Group>(null!);
+  const moonCore = useRef<THREE.Mesh>(null!);
+  const moonHalo = useRef<THREE.Mesh>(null!);
+
+  const t = useMemo(
+    () => ({
+      bg: new THREE.Color(pal.background),
+      fog: new THREE.Color(pal.fogColor),
+      hemiSky: new THREE.Color(pal.hemiSky),
+      hemiGround: new THREE.Color(pal.hemiGround),
+      amb: new THREE.Color(pal.ambientColor),
+      dir: new THREE.Color(pal.dirColor),
+    }),
+    [pal]
+  );
+
+  useEffect(() => {
+    if (!scene.background) scene.background = new THREE.Color(DAY.background);
+    if (!scene.fog) scene.fog = new THREE.Fog(DAY.fogColor, DAY.fogNear, DAY.fogFar);
+  }, [scene]);
+
+  useFrame((_, dt) => {
+    const k = 1 - Math.pow(0.0001, dt);
+    (scene.background as THREE.Color)?.lerp(t.bg, k);
+    const fog = scene.fog as THREE.Fog;
+    if (fog) {
+      fog.color.lerp(t.fog, k);
+      fog.near = THREE.MathUtils.damp(fog.near, pal.fogNear, 3, dt);
+      fog.far = THREE.MathUtils.damp(fog.far, pal.fogFar, 3, dt);
+    }
+    if (hemi.current) {
+      hemi.current.color.lerp(t.hemiSky, k);
+      hemi.current.groundColor.lerp(t.hemiGround, k);
+      hemi.current.intensity = THREE.MathUtils.damp(hemi.current.intensity, pal.hemiInt, 3, dt);
+    }
+    if (amb.current) {
+      amb.current.color.lerp(t.amb, k);
+      amb.current.intensity = THREE.MathUtils.damp(amb.current.intensity, pal.ambientInt, 3, dt);
+    }
+    if (dir.current) {
+      dir.current.color.lerp(t.dir, k);
+      dir.current.intensity = THREE.MathUtils.damp(dir.current.intensity, pal.dirInt, 3, dt);
+    }
+    if (moonCore.current && moonHalo.current) {
+      const cm = moonCore.current.material as THREE.MeshBasicMaterial;
+      const hm = moonHalo.current.material as THREE.MeshBasicMaterial;
+      cm.opacity = THREE.MathUtils.damp(cm.opacity, pal.moon, 3, dt);
+      hm.opacity = THREE.MathUtils.damp(hm.opacity, pal.moon * 0.4, 3, dt);
+      moon.current.visible = cm.opacity > 0.01;
+    }
+  });
+
+  return (
+    <>
+      <hemisphereLight ref={hemi} args={["#fff0cf", "#5a4a26", 0.85]} />
+      <ambientLight ref={amb} intensity={0.28} />
+      <directionalLight ref={dir} position={[-34, 30, 22]} intensity={1.7} color="#ffdca0" />
+
+      {/* moon — only really visible at night */}
+      <group ref={moon} position={[-78, 52, -96]}>
+        <mesh ref={moonCore}>
+          <sphereGeometry args={[10, 32, 32]} />
+          <meshBasicMaterial color="#eaf0ff" transparent opacity={0} toneMapped={false} fog={false} />
+        </mesh>
+        <mesh ref={moonHalo}>
+          <sphereGeometry args={[18, 32, 32]} />
+          <meshBasicMaterial
+            color="#9fb4ff"
+            transparent
+            opacity={0}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            toneMapped={false}
+            fog={false}
+          />
+        </mesh>
+      </group>
+    </>
+  );
+}
+
 function Pollen() {
   const ref = useRef<THREE.Points>(null!);
-  const COUNT = 380;
+  const matRef = useRef<THREE.PointsMaterial>(null!);
+  const theme = useStore((s) => s.theme);
+  const targetCol = useMemo(() => new THREE.Color(paletteFor(theme).pollen), [theme]);
+  const COUNT = 460;
   const { geometry, velocities } = useMemo(() => {
     const pos = new Float32Array(COUNT * 3);
     const velocities = new Float32Array(COUNT);
     for (let i = 0; i < COUNT; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 60;
-      pos[i * 3 + 1] = Math.random() * 14;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 60;
+      pos[i * 3] = (Math.random() - 0.5) * 90;
+      pos[i * 3 + 1] = Math.random() * 16;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 90;
       velocities[i] = 0.2 + Math.random() * 0.5;
     }
     const geometry = new THREE.BufferGeometry();
@@ -97,20 +190,22 @@ function Pollen() {
 
   useFrame((state, dt) => {
     const arr = geometry.getAttribute("position") as THREE.BufferAttribute;
-    const t = state.clock.elapsedTime;
+    const tm = state.clock.elapsedTime;
     for (let i = 0; i < COUNT; i++) {
       let y = arr.getY(i) + velocities[i] * dt * 0.6;
-      let x = arr.getX(i) + Math.sin(t * 0.3 + i) * dt * 0.25;
-      if (y > 15) y = 0;
+      const x = arr.getX(i) + Math.sin(tm * 0.3 + i) * dt * 0.25;
+      if (y > 17) y = 0;
       arr.setY(i, y);
       arr.setX(i, x);
     }
     arr.needsUpdate = true;
+    if (matRef.current) matRef.current.color.lerp(targetCol, 1 - Math.pow(0.0001, dt));
   });
 
   return (
     <points ref={ref} geometry={geometry}>
       <pointsMaterial
+        ref={matRef}
         color="#ffe6ad"
         size={0.14}
         transparent
@@ -127,17 +222,7 @@ function Pollen() {
 export default function Scene() {
   return (
     <>
-      <color attach="background" args={["#caa86a"]} />
-      <fog attach="fog" args={["#d8bd84", 30, 95]} />
-
-      <hemisphereLight args={["#fff0cf", "#5a4a26", 0.85]} />
-      <ambientLight intensity={0.25} />
-      <directionalLight
-        position={[-30, 24, 18]}
-        intensity={1.8}
-        color="#ffdca0"
-      />
-
+      <Atmosphere />
       <Ground />
       <CropField />
       <Orbs />

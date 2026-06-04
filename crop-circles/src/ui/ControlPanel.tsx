@@ -5,13 +5,15 @@ import { useStore } from "../store";
 export default function ControlPanel() {
   const patternId = useStore((s) => s.patternId);
   const phase = useStore((s) => s.phase);
+  const theme = useStore((s) => s.theme);
   const selectPattern = useStore((s) => s.selectPattern);
   const reform = useStore((s) => s.reform);
+  const toggleTheme = useStore((s) => s.toggleTheme);
 
   const forming = phase === "forming";
 
   return (
-    <div className="ui-layer">
+    <div className={"ui-layer" + (theme === "night" ? " night" : "")}>
       <motion.header
         className="title"
         initial={{ opacity: 0, y: -12 }}
@@ -43,6 +45,16 @@ export default function ControlPanel() {
         </div>
         <button className="reform-btn" onClick={reform}>
           ↻ Reform Field
+        </button>
+
+        <button
+          className={"theme-toggle" + (theme === "night" ? " night" : "")}
+          onClick={toggleTheme}
+        >
+          <span className="theme-track">
+            <span className="theme-knob">{theme === "night" ? "☾" : "☀"}</span>
+          </span>
+          {theme === "night" ? "Moonlit" : "Daylight"}
         </button>
       </motion.div>
 

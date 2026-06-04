@@ -2,32 +2,44 @@ import { useMemo, useRef, useLayoutEffect } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { FIELD_RADIUS, computeCarve, getPattern } from "./patterns";
+import { computeCarve, getPattern } from "./patterns";
 import { useStore } from "./store";
+import { paletteFor } from "./theme";
 
-const COUNT_TARGET = 13000;
+const COUNT_TARGET = 52000;
+const SCATTER_R = 48; // crops reach well past the pattern; fog hides the rim
+const EDGE_FADE = 9; // stalks shrink to nothing over the last few metres
 
 // build a thin cross-blade (two perpendicular vertical quads), base at y=0
 function makeBlade() {
-  const a = new THREE.PlaneGeometry(0.085, 1, 1, 5);
+  const a = new THREE.PlaneGeometry(0.07, 1, 1, 4);
   a.translate(0, 0.5, 0);
   const b = a.clone();
   b.rotateY(Math.PI / 2);
-  const g = mergeGeometries([a, b])!;
-  return g;
+  return mergeGeometries([a, b])!;
 }
 
 export default function CropField() {
   const meshRef = useRef<THREE.InstancedMesh>(null!);
-  const matRef = useRef<THREE.MeshStandardMaterial>(null!);
   const patternId = useStore((s) => s.patternId);
+  const theme = useStore((s) => s.theme);
 
-  // scatter stalks on a jittered grid inside the field disc
+  const target = useMemo(() => {
+    const p = paletteFor(theme);
+    return {
+      colA: new THREE.Color(p.bladeA),
+      colB: new THREE.Color(p.bladeB),
+      flatA: new THREE.Color(p.bladeFlatA),
+      flatB: new THREE.Color(p.bladeFlatB),
+      windAmp: p.windAmp,
+    };
+  }, [theme]);
+
+  // scatter dense stalks on a jittered grid inside the field disc
   const { geometry, count, positions, attrs, uniforms } = useMemo(() => {
     const geometry = makeBlade();
-    const spacing = 0.42;
-    const R = FIELD_RADIUS + 4;
-    const half = Math.ceil(R / spacing);
+    const spacing = 0.36;
+    const half = Math.ceil(SCATTER_R / spacing);
     const px: number[] = [];
     const yaw: number[] = [];
     const height: number[] = [];
@@ -35,12 +47,16 @@ export default function CropField() {
     const rand: number[] = [];
     for (let gx = -half; gx <= half; gx++) {
       for (let gz = -half; gz <= half; gz++) {
-        const x = gx * spacing + (Math.random() - 0.5) * spacing * 0.9;
-        const z = gz * spacing + (Math.random() - 0.5) * spacing * 0.9;
-        if (x * x + z * z > R * R) continue;
+        const x = gx * spacing + (Math.random() - 0.5) * spacing * 0.95;
+        const z = gz * spacing + (Math.random() - 0.5) * spacing * 0.95;
+        const dist = Math.hypot(x, z);
+        if (dist > SCATTER_R) continue;
+        // soft rim so the field thins into the haze instead of clipping
+        const edge = THREE.MathUtils.clamp((SCATTER_R - dist) / EDGE_FADE, 0, 1);
+        const h = (1.15 + Math.random() * 0.75) * (0.25 + 0.75 * edge);
         px.push(x, z);
         yaw.push(Math.random() * Math.PI * 2);
-        height.push(1.25 + Math.random() * 0.7);
+        height.push(h);
         phase.push(Math.random() * Math.PI * 2);
         rand.push(Math.random());
       }
@@ -61,10 +77,10 @@ export default function CropField() {
       uProgress: { value: 0 },
       uWind: { value: new THREE.Vector2(0.85, 0.52) },
       uWindAmp: { value: 0.32 },
-      uColA: { value: new THREE.Color("#b9982f") },
-      uColB: { value: new THREE.Color("#d9bb52") },
-      uFlatA: { value: new THREE.Color("#cdb15e") },
-      uFlatB: { value: new THREE.Color("#e6d089") },
+      uColA: { value: new THREE.Color("#a98c2d") },
+      uColB: { value: new THREE.Color("#cdaf4c") },
+      uFlatA: { value: new THREE.Color("#c6a956") },
+      uFlatB: { value: new THREE.Color("#e4cd83") },
     };
     return { geometry, count, positions, attrs, uniforms };
   }, []);
@@ -87,14 +103,13 @@ export default function CropField() {
       mesh.setMatrixAt(i, m);
     }
     mesh.instanceMatrix.needsUpdate = true;
-    // generous bounds so it never gets frustum-culled while bending
-    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), FIELD_RADIUS + 8);
+    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), SCATTER_R + 12);
   }, [attrs, count, positions]);
 
   // recompute carve targets whenever the pattern changes
   useLayoutEffect(() => {
     const pattern = getPattern(patternId);
-    const carve = computeCarve(positions, count, pattern);
+    const carve = computeCarve(positions, count, pattern, attrs.aRand);
     attrs.aFlatten.set(carve.flatten);
     attrs.aCarveT.set(carve.carveT);
     for (let i = 0; i < count; i++) {
@@ -125,7 +140,6 @@ export default function CropField() {
       `
       float y01 = position.y;
       float bx = position.x; float bz = position.z;
-      // yaw the thin cross footprint
       float cy = cos(aYaw); float sy = sin(aYaw);
       vec2 footprint = mat2(cy, -sy, sy, cy) * vec2(bx, bz);
 
@@ -140,9 +154,8 @@ export default function CropField() {
                  * sin(uTime * 1.7 + aPhase + wx * 0.35 + wz * 0.22);
       vec2 swayOff = normalize(uWind) * sway * (1.0 - fAmt * 0.85);
 
-      // tip the stalk over along its brushed direction when flattened
+      // tip the stalk over along its woven brush direction when flattened
       vec2 flatOff = aDir * hgt * fAmt * 0.95;
-      // tiny curl so flattened straw isn't dead-flat
       float curl = sin(y01 * 3.14159 + aRand * 6.28) * 0.12 * fAmt;
 
       vec3 transformed = vec3(
@@ -153,7 +166,6 @@ export default function CropField() {
       `
     );
 
-    // laid-down straw catches light from above
     shader.vertexShader = shader.vertexShader.replace(
       "#include <beginnormal_vertex>",
       `
@@ -177,15 +189,26 @@ export default function CropField() {
       vec3 standCol = mix(uColA, uColB, vRand);
       vec3 flatCol = mix(uFlatA, uFlatB, vRand);
       vec3 cc = mix(standCol, flatCol, vFlat);
-      cc *= mix(0.5, 1.05, vY);           // darker toward the soil
+      cc *= mix(0.5, 1.05, vY);
       diffuseColor.rgb *= cc;
       `
     );
   };
 
-  useFrame((state) => {
+  useFrame((state, dt) => {
     uniforms.uTime.value = state.clock.elapsedTime;
     uniforms.uProgress.value = useStore.getState().formProgress;
+    const k = 1 - Math.pow(0.0001, dt); // smooth day/night transition
+    uniforms.uColA.value.lerp(target.colA, k);
+    uniforms.uColB.value.lerp(target.colB, k);
+    uniforms.uFlatA.value.lerp(target.flatA, k);
+    uniforms.uFlatB.value.lerp(target.flatB, k);
+    uniforms.uWindAmp.value = THREE.MathUtils.damp(
+      uniforms.uWindAmp.value,
+      target.windAmp,
+      3,
+      dt
+    );
   });
 
   return (
@@ -196,7 +219,6 @@ export default function CropField() {
       receiveShadow
     >
       <meshStandardMaterial
-        ref={matRef}
         color="#ffffff"
         roughness={0.85}
         metalness={0.0}

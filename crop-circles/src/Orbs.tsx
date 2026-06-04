@@ -1,8 +1,9 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { NUM_ORBS, getPattern, type Stroke, type Vec2 } from "./patterns";
 import { useStore } from "./store";
+import { paletteFor } from "./theme";
 
 const CARVE_Y = 2.4;
 const HOVER_Y = 9;
@@ -23,10 +24,12 @@ interface OrbVisual {
   beam: THREE.Mesh;
   light: THREE.PointLight;
   halo: THREE.Mesh;
+  core: THREE.Mesh;
 }
 
 export default function Orbs() {
   const patternId = useStore((s) => s.patternId);
+  const theme = useStore((s) => s.theme);
   const refs = useRef<OrbVisual[]>([]);
   const opacity = useRef<number[]>(new Array(NUM_ORBS).fill(0));
   const tmpTarget = useMemo(() => new THREE.Vector3(), []);
@@ -36,6 +39,18 @@ export default function Orbs() {
     refs.current[o] = refs.current[o] || ({} as OrbVisual);
     return refs.current[o];
   };
+
+  // recolor orbs for day / moonlit night
+  useEffect(() => {
+    const p = paletteFor(theme);
+    for (const v of refs.current) {
+      if (!v) continue;
+      (v.core.material as THREE.MeshBasicMaterial).color.set(p.orbCore);
+      (v.halo.material as THREE.MeshBasicMaterial).color.set(p.orbHalo);
+      v.light.color.set(p.orbLight);
+      (v.beam.material as THREE.MeshBasicMaterial).color.set(p.orbBeam);
+    }
+  }, [theme]);
 
   // group strokes per orb, ordered by time
   const perOrb = useMemo(() => {
@@ -139,7 +154,7 @@ export default function Orbs() {
           }}
         >
           {/* core */}
-          <mesh>
+          <mesh ref={(m) => m && (slot(o).core = m)}>
             <sphereGeometry args={[0.45, 24, 24]} />
             <meshBasicMaterial color="#fff4d6" toneMapped={false} />
           </mesh>

@@ -82,11 +82,11 @@ function dot(cx: number, cz: number, r: number): Vec2[] {
 
 function classicRings(): Pattern {
   const strokes: Stroke[] = [
-    { points: dot(0, 0, 3.2), tStart: 0.0, tEnd: 0.22, orb: 0, radius: 0 } as any,
-    { points: circle(0, 0, 8), tStart: 0.12, tEnd: 0.5, orb: 1 } as any,
-    { points: circle(0, 0, 13), tStart: 0.3, tEnd: 0.72, orb: 2 } as any,
-    { points: circle(0, 0, 18.5), tStart: 0.5, tEnd: 1.0, orb: 3 } as any,
-  ].map((s) => ({ points: s.points, tStart: s.tStart, tEnd: s.tEnd, orb: s.orb }));
+    { points: dot(0, 0, 3.2), tStart: 0.0, tEnd: 0.22, orb: 0 },
+    { points: circle(0, 0, 8), tStart: 0.12, tEnd: 0.5, orb: 1 },
+    { points: circle(0, 0, 13), tStart: 0.3, tEnd: 0.72, orb: 2 },
+    { points: circle(0, 0, 18.5), tStart: 0.5, tEnd: 1.0, orb: 3 },
+  ];
   return { id: "rings", label: "Classic Rings", strokes, radius: 1.5 };
 }
 
@@ -188,12 +188,22 @@ export interface CarveData {
   dirZ: Float32Array;
 }
 
-// For each stalk, find the nearest stroke sample → flatten amount, the time the
-// orb reaches it, and the brush direction (stroke tangent → swirled look).
+interface Sample {
+  x: number;
+  z: number;
+  t: number; // global carve time
+  tx: number; // unit tangent
+  tz: number;
+}
+
+// For each stalk: nearest stroke sample → flatten amount, arrival time, and a
+// woven brush direction. A uniform grid keeps this near-O(n) so it stays fast
+// even with tens of thousands of dense stalks.
 export function computeCarve(
   positions: Float32Array, // x,z interleaved per stalk
   count: number,
-  pattern: Pattern
+  pattern: Pattern,
+  rand: Float32Array
 ): CarveData {
   const flatten = new Float32Array(count);
   const carveT = new Float32Array(count);
@@ -202,46 +212,83 @@ export function computeCarve(
   const r = pattern.radius;
   const rInner = r * 0.35;
 
+  // flatten strokes into a sample list with tangents + arrival time
+  const samples: Sample[] = [];
+  for (const s of pattern.strokes) {
+    const pts = s.points;
+    const m = pts.length;
+    for (let j = 0; j < m; j++) {
+      const t = s.tStart + (s.tEnd - s.tStart) * (j / Math.max(1, m - 1));
+      const k = j < m - 1 ? j + 1 : j - 1;
+      let tx = pts[k][0] - pts[j][0];
+      let tz = pts[k][1] - pts[j][1];
+      if (j === m - 1) {
+        tx = -tx;
+        tz = -tz;
+      }
+      const tl = Math.hypot(tx, tz) || 1;
+      samples.push({ x: pts[j][0], z: pts[j][1], t, tx: tx / tl, tz: tz / tl });
+    }
+  }
+
+  // spatial grid (cell ~ carve radius → only 3×3 cells need checking)
+  const cell = Math.max(0.6, r);
+  const grid = new Map<number, number[]>();
+  const GW = 4096; // hash stride
+  const key = (cx: number, cz: number) => (cx + 2048) * GW + (cz + 2048);
+  for (let s = 0; s < samples.length; s++) {
+    const cx = Math.floor(samples[s].x / cell);
+    const cz = Math.floor(samples[s].z / cell);
+    const kk = key(cx, cz);
+    let a = grid.get(kk);
+    if (!a) grid.set(kk, (a = []));
+    a.push(s);
+  }
+
   for (let i = 0; i < count; i++) {
     const px = positions[i * 2];
     const pz = positions[i * 2 + 1];
+    const cx = Math.floor(px / cell);
+    const cz = Math.floor(pz / cell);
     let best = Infinity;
-    let bestT = 0;
-    let bestDx = 0;
-    let bestDz = 0;
-    for (const s of pattern.strokes) {
-      const pts = s.points;
-      const m = pts.length;
-      for (let j = 0; j < m; j++) {
-        const dx = px - pts[j][0];
-        const dz = pz - pts[j][1];
-        const d2 = dx * dx + dz * dz;
-        if (d2 < best) {
-          best = d2;
-          bestT = s.tStart + (s.tEnd - s.tStart) * (j / Math.max(1, m - 1));
-          // tangent
-          const k = j < m - 1 ? j + 1 : j - 1;
-          let tx = pts[k][0] - pts[j][0];
-          let tz = pts[k][1] - pts[j][1];
-          if (j === m - 1) {
-            tx = -tx;
-            tz = -tz;
+    let bt = 0;
+    let btx = 1;
+    let btz = 0;
+    for (let ox = -1; ox <= 1; ox++) {
+      for (let oz = -1; oz <= 1; oz++) {
+        const a = grid.get(key(cx + ox, cz + oz));
+        if (!a) continue;
+        for (let q = 0; q < a.length; q++) {
+          const s = samples[a[q]];
+          const dx = px - s.x;
+          const dz = pz - s.z;
+          const d2 = dx * dx + dz * dz;
+          if (d2 < best) {
+            best = d2;
+            bt = s.t;
+            btx = s.tx;
+            btz = s.tz;
           }
-          const tl = Math.hypot(tx, tz) || 1;
-          bestDx = tx / tl;
-          bestDz = tz / tl;
         }
       }
     }
+
     const d = Math.sqrt(best);
-    // soft-edged carve channel
     let f = 1 - (d - rInner) / (r - rInner);
     f = Math.max(0, Math.min(1, f));
     f = f * f * (3 - 2 * f); // smoothstep
     flatten[i] = f;
-    carveT[i] = bestT;
-    dirX[i] = bestDx;
-    dirZ[i] = bestDz;
+    carveT[i] = bt;
+
+    // weave: alternating concentric bands lay in crossing directions, plus a
+    // per-stalk jitter — mimics the layered crisscross of real crop circles.
+    const dc = Math.hypot(px, pz);
+    const band = Math.floor(dc / 1.7);
+    const layer = band % 2 === 0 ? 1 : -1;
+    let ang = Math.atan2(btz, btx);
+    ang += layer * 0.5 + (rand[i] - 0.5) * 0.6 + Math.sin(dc * 0.85 + bt * 14) * 0.22;
+    dirX[i] = Math.cos(ang);
+    dirZ[i] = Math.sin(ang);
   }
   return { flatten, carveT, dirX, dirZ };
 }

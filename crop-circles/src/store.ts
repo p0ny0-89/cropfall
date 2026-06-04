@@ -2,15 +2,18 @@ import { create } from "zustand";
 import { PATTERNS } from "./patterns";
 
 export type Phase = "intro" | "forming" | "explore";
+export type Theme = "day" | "night";
 
 interface State {
   patternId: string;
   phase: Phase;
+  theme: Theme;
   formProgress: number; // 0..1 carve progress, drives the shader reveal
   selectPattern: (id: string) => void;
   setPhase: (p: Phase) => void;
   setProgress: (n: number) => void;
   reform: () => void;
+  toggleTheme: () => void;
   // a token that increments whenever a fresh formation should start
   formToken: number;
 }
@@ -18,8 +21,10 @@ interface State {
 export const useStore = create<State>((set, get) => ({
   patternId: PATTERNS[0].id,
   phase: "intro",
+  theme: "day",
   formProgress: 0,
   formToken: 0,
+  toggleTheme: () => set((s) => ({ theme: s.theme === "day" ? "night" : "day" })),
   selectPattern: (id) => {
     if (id === get().patternId && get().phase === "forming") return;
     set((s) => ({

@@ -173,6 +173,65 @@ canvas {
   transform: scale(0.97);
 }
 
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: transparent;
+  border: 1px solid rgba(255, 226, 160, 0.18);
+  border-radius: 10px;
+  color: rgba(247, 233, 198, 0.78);
+  font-family: "Inter", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.25s, color 0.25s, border-color 0.25s;
+}
+
+.theme-toggle:hover {
+  background: rgba(255, 233, 180, 0.08);
+}
+
+.theme-track {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  border-radius: 9px;
+  background: rgba(255, 226, 160, 0.25);
+  transition: background 0.3s;
+  flex: 0 0 auto;
+}
+
+.theme-knob {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff3da;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #6b5320;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s;
+}
+
+.theme-toggle.night .theme-track {
+  background: rgba(120, 134, 191, 0.5);
+}
+
+.theme-toggle.night .theme-knob {
+  transform: translateX(16px);
+  background: #cdd8ff;
+  color: #1b1d3a;
+}
+
 .status {
   position: absolute;
   bottom: 38px;
@@ -230,6 +289,23 @@ canvas {
     ellipse at center,
     transparent 52%,
     rgba(60, 42, 16, 0.42) 100%
+  );
+  transition: background 1s ease;
+}
+
+/* night: light overlay text, cooler vignette */
+.ui-layer.night .title,
+.ui-layer.night .status,
+.ui-layer.night .hint {
+  color: #d7defb;
+  mix-blend-mode: screen;
+}
+
+.ui-layer.night .vignette {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 50%,
+    rgba(8, 9, 26, 0.55) 100%
   );
 }
 
