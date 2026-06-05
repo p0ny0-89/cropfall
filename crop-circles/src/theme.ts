@@ -68,7 +68,7 @@ export const NIGHT: Palette = {
   // light-blue moonlit haze at the horizon, falling off to purple overhead.
   // The field colours are kept close to this haze so the crops melt into the
   // horizon (one continuous gradient) rather than reading as a dark band.
-  fogColor: "#4a5aa6",
+  fogColor: "#6f91d8",
   fogNear: 12,
   fogFar: 60,
 
