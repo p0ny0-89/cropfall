@@ -5,6 +5,7 @@ import CropField from "./CropField";
 import Ground from "./Ground";
 import Orbs from "./Orbs";
 import Sky from "./Sky";
+import Aliens from "./Aliens";
 import { useStore } from "./store";
 import { paletteFor } from "./theme";
 import { pathHit } from "./patterns";
@@ -467,6 +468,7 @@ export default function Scene() {
       <CropField />
       <Orbs />
       <Pollen />
+      <Aliens />
       <DropInteraction />
 
       <CameraSystem />
