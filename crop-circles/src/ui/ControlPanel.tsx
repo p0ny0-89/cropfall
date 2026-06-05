@@ -2,7 +2,12 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PATTERNS } from "../patterns";
 import { useStore } from "../store";
+import { paletteFor } from "../theme";
 import FormationLab from "./FormationLab";
+
+// quick presets; gold (the natural default crop) first, then stylized hues.
+// the native picker on the end covers anything else.
+const CROP_PRESETS = ["#d2a13f", "#5aa83c", "#2fa39a", "#7d6cd6", "#cc5a86"];
 
 function GearIcon() {
   return (
@@ -33,9 +38,13 @@ export default function ControlPanel() {
   const selectPattern = useStore((s) => s.selectPattern);
   const reform = useStore((s) => s.reform);
   const toggleTheme = useStore((s) => s.toggleTheme);
+  const cropColor = useStore((s) => s.cropColor);
+  const setCropColor = useStore((s) => s.setCropColor);
   const [open, setOpen] = useState(true);
 
   const forming = phase === "forming";
+  // what the native picker shows when no custom colour is set yet
+  const pickerValue = cropColor ?? paletteFor(theme).bladeB;
 
   return (
     <div className={"ui-layer" + (theme === "night" ? " night" : "")}>
@@ -113,6 +122,38 @@ export default function ControlPanel() {
               </span>
               {theme === "night" ? "Moonlit" : "Daylight"}
             </button>
+
+            <div className="crop-color">
+              <div className="crop-color-head">
+                <span>Crop Color</span>
+                {cropColor && (
+                  <button className="crop-reset" onClick={() => setCropColor(null)}>
+                    Reset
+                  </button>
+                )}
+              </div>
+              <div className="swatch-row">
+                {CROP_PRESETS.map((c) => (
+                  <button
+                    key={c}
+                    className={"swatch" + (cropColor === c ? " active" : "")}
+                    style={{ background: c }}
+                    onClick={() => setCropColor(c)}
+                    aria-label={"Crop colour " + c}
+                  />
+                ))}
+                <label
+                  className={"swatch swatch-custom" + (cropColor && !CROP_PRESETS.includes(cropColor) ? " active" : "")}
+                  aria-label="Pick a custom crop colour"
+                >
+                  <input
+                    type="color"
+                    value={pickerValue}
+                    onChange={(e) => setCropColor(e.target.value)}
+                  />
+                </label>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

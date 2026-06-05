@@ -307,6 +307,88 @@ canvas {
   color: #1b1d3a;
 }
 
+/* ---- crop colour picker ---- */
+.crop-color {
+  margin-top: 12px;
+}
+
+.crop-color-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.036em;
+  text-transform: uppercase;
+  color: var(--text);
+  margin-bottom: 9px;
+  padding-left: 2px;
+}
+
+.crop-reset {
+  font-family: inherit;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  opacity: 0.85;
+  transition: opacity 0.2s;
+}
+.crop-reset:hover {
+  opacity: 1;
+}
+
+.swatch-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.15s, box-shadow 0.2s;
+}
+.swatch:hover {
+  transform: scale(1.12);
+}
+.swatch.active {
+  border-color: var(--text-strong);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* the "any colour" swatch: rainbow hint wrapping a hidden native picker */
+.swatch-custom {
+  background: conic-gradient(
+    from 0deg,
+    #ff5d5d,
+    #ffd166,
+    #5aa83c,
+    #2fa39a,
+    #5b8def,
+    #b06cf0,
+    #ff5d5d
+  );
+  overflow: hidden;
+}
+.swatch-custom input[type="color"] {
+  position: absolute;
+  inset: -6px;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
 /* ---- Formation Lab ---- */
 .lab {
   margin-top: 14px;

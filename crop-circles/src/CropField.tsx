@@ -25,21 +25,38 @@ function makeBlade() {
   return g;
 }
 
+// Derive the four blade shades (dark standing A/B, lighter downed/flattened
+// A/B) from a single picked hue, preserving the standing↔flattened contrast.
+const _black = new THREE.Color(0, 0, 0);
+const _white = new THREE.Color(1, 1, 1);
+function bladeColorsFrom(hex: string) {
+  const base = new THREE.Color(hex);
+  return {
+    colA: base.clone().lerp(_black, 0.4),
+    colB: base.clone().lerp(_black, 0.12),
+    flatA: base.clone().lerp(_white, 0.34),
+    flatB: base.clone().lerp(_white, 0.6),
+  };
+}
+
 export default function CropField() {
   const meshRef = useRef<THREE.InstancedMesh>(null!);
   const activePattern = useStore((s) => s.activePattern);
   const theme = useStore((s) => s.theme);
+  const cropColor = useStore((s) => s.cropColor);
 
   const target = useMemo(() => {
     const p = paletteFor(theme);
-    return {
-      colA: new THREE.Color(p.bladeA),
-      colB: new THREE.Color(p.bladeB),
-      flatA: new THREE.Color(p.bladeFlatA),
-      flatB: new THREE.Color(p.bladeFlatB),
-      windAmp: p.windAmp,
-    };
-  }, [theme]);
+    const c = cropColor
+      ? bladeColorsFrom(cropColor)
+      : {
+          colA: new THREE.Color(p.bladeA),
+          colB: new THREE.Color(p.bladeB),
+          flatA: new THREE.Color(p.bladeFlatA),
+          flatB: new THREE.Color(p.bladeFlatB),
+        };
+    return { ...c, windAmp: p.windAmp };
+  }, [theme, cropColor]);
 
   // scatter dense stalks on a jittered grid inside the field disc
   const { geometry, count, positions, attrs, uniforms } = useMemo(() => {
