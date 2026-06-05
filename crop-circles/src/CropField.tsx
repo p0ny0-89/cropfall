@@ -173,8 +173,8 @@ export default function CropField() {
       float fAmt = smoothstep(aCarveT, aCarveT + 0.06, uProgress) * aFlatten;
       vFlat = fAmt; vRand = aRand; vY = y01;
 
-      // a gentle widen on downed straw only — a middle ground that knits the
-      // woven lay over the soil while staying far thinner than the old version
+      // a gentle widen on downed straw only — knits the woven lay over the soil
+      // while keeping it close to the upright stalk width
       footprint *= 1.0 + fAmt * 0.75;
 
       float hgt = y01 * aHeight;
@@ -197,7 +197,10 @@ export default function CropField() {
     shader.vertexShader = shader.vertexShader.replace(
       "#include <beginnormal_vertex>",
       `
-      vec3 objectNormal = normalize(mix(normal, vec3(0.0, 1.0, 0.0), aFlatten * 0.85));
+      // use the *animated* flatten amount (not the target) so the lighting
+      // doesn't reveal the pattern before the orbs actually carve it
+      float fAmtN = smoothstep(aCarveT, aCarveT + 0.06, uProgress) * aFlatten;
+      vec3 objectNormal = normalize(mix(normal, vec3(0.0, 1.0, 0.0), fAmtN * 0.85));
       #ifdef USE_TANGENT
         vec3 objectTangent = vec3( tangent.xyz );
       #endif

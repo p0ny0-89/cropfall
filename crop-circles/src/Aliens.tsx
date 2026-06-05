@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { useFrame, useThree, useLoader } from "@react-three/fiber";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { useStore } from "./store";
+import { pathHit } from "./patterns";
 import { rustle } from "./audio";
 
 // A couple of little grey aliens that peep up between the standing crops and
@@ -86,9 +87,18 @@ function AliensImpl() {
   );
 
   const startPeep = (a: Alien) => {
-    const ang = Math.random() * Math.PI * 2;
-    const r = 12 + Math.random() * 32; // among the standing crops
-    a.pos.set(Math.cos(ang) * r, REST_Y, Math.sin(ang) * r);
+    // find a spot in the *standing* crops — never on a flattened/downed path
+    const pat = useStore.getState().activePattern;
+    let x = 0;
+    let z = 0;
+    for (let tries = 0; tries < 16; tries++) {
+      const ang = Math.random() * Math.PI * 2;
+      const r = 10 + Math.random() * 34;
+      x = Math.cos(ang) * r;
+      z = Math.sin(ang) * r;
+      if (pathHit(x, z, pat).dist > pat.radius * 1.7) break; // clear of the lay
+    }
+    a.pos.set(x, REST_Y, z);
     a.life = 1.8 + Math.random() * 2.6;
     a.t = 0;
     a.phase = "peep";

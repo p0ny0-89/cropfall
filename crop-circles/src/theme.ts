@@ -51,7 +51,7 @@ export const DAY: Palette = {
   bladeB: "#cdaf4c",
   bladeFlatA: "#c6a956",
   bladeFlatB: "#e4cd83",
-  groundColor: "#a98a47",
+  groundColor: "#241a0c",
   pollen: "#ffe6ad",
 
   orbCore: "#fff4d6",
@@ -84,7 +84,7 @@ export const NIGHT: Palette = {
   bladeB: "#707fbf",
   bladeFlatA: "#99a6dc",
   bladeFlatB: "#c6cff3",
-  groundColor: "#4b5599",
+  groundColor: "#0a0e26",
   pollen: "#d6dfff",
 
   orbCore: "#eef3ff",
