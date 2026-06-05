@@ -14,7 +14,7 @@ body,
 }
 
 body {
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -102,9 +102,9 @@ canvas {
 }
 
 .fab-label {
-  font-size: 13.5px;
-  font-weight: 600;
-  letter-spacing: 0.22em;
+  font-size: 12.5px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -159,9 +159,9 @@ canvas {
 }
 
 .panel-label {
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.28em;
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
   text-transform: uppercase;
   color: var(--accent);
   margin-bottom: 12px;
@@ -185,9 +185,9 @@ canvas {
   border-radius: 10px;
   color: var(--text);
   font-family: inherit;
-  font-size: 18px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0;
   text-align: left;
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
@@ -229,8 +229,8 @@ canvas {
   color: var(--text-strong);
   font-family: inherit;
   font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.2em;
+  font-weight: 400;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
   transition: background 0.25s, transform 0.15s;
@@ -259,8 +259,8 @@ canvas {
   color: var(--text);
   font-family: inherit;
   font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.2em;
+  font-weight: 400;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
   transition: background 0.25s, color 0.25s, border-color 0.25s;
@@ -315,9 +315,9 @@ canvas {
 }
 
 .lab-title {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.28em;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
   text-transform: uppercase;
   color: var(--accent);
   margin-bottom: 14px;
@@ -333,8 +333,8 @@ canvas {
   justify-content: space-between;
   align-items: baseline;
   font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
+  font-weight: 400;
+  letter-spacing: 0.036em;
   text-transform: uppercase;
   color: var(--text);
   margin-bottom: 7px;
@@ -343,7 +343,7 @@ canvas {
 .lab-value {
   font-variant-numeric: tabular-nums;
   color: var(--text-strong);
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
 }
 
 .lab-seg {
@@ -361,9 +361,9 @@ canvas {
   border-radius: 8px;
   color: var(--text);
   font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
   cursor: pointer;
   transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
@@ -426,8 +426,8 @@ canvas {
   bottom: 30px;
   color: var(--text);
   font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.2em;
+  font-weight: 500;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   padding: 6px 15px;
   border-radius: 999px;
@@ -508,8 +508,8 @@ canvas {
 
 .minimap-title {
   font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.28em;
+  font-weight: 400;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--accent);
   margin-bottom: 9px;

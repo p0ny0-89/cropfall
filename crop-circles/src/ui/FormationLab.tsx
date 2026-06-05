@@ -60,7 +60,7 @@ export default function FormationLab() {
 
   return (
     <div className="lab">
-      <div className="lab-title">Formation Lab</div>
+      <div className="lab-title">Custom Settings</div>
 
       <div className="lab-control">
         <div className="lab-label">
