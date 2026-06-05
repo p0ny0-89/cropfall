@@ -8,7 +8,7 @@ This repository is currently empty. Update this file as the project grows to doc
 
 **This is a required workflow for all work in this repository.**
 
-The GitHub remote is: https://github.com/p0ny0-89/ClaudeCode
+The GitHub remote is: https://github.com/p0ny0-89/cropfall
 
 Commit and push after every meaningful unit of work (new feature, bug fix, refactor, config change) so progress is always saved and reversible.
 
