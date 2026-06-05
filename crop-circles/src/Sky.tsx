@@ -22,6 +22,12 @@ const nightHorizon = new THREE.Color("#3a4690"); // light-blue haze == fog
 const nightMid = new THREE.Color("#352a72"); // blue-violet
 const nightZenith = new THREE.Color("#241a52"); // deep purple
 
+// A luminous glow that sits right on the horizon and blooms upward, so the
+// field reads as backlit by a magical haze rather than meeting a flat band.
+// Day's glow ~= its horizon (barely-there), night's is a bright periwinkle.
+const dayHaze = new THREE.Color("#ece7db");
+const nightHaze = new THREE.Color("#bfccf2");
+
 export default function Sky() {
   const { camera, gl } = useThree();
   const theme = useStore((s) => s.theme);
@@ -34,6 +40,7 @@ export default function Sky() {
       uHorizon: { value: new THREE.Color() },
       uMid: { value: new THREE.Color() },
       uZenith: { value: new THREE.Color() },
+      uHaze: { value: new THREE.Color() },
     }),
     []
   );
@@ -142,6 +149,7 @@ export default function Sky() {
     domeUniforms.uHorizon.value.copy(dayHorizon).lerp(nightHorizon, nm);
     domeUniforms.uMid.value.copy(dayMid).lerp(nightMid, nm);
     domeUniforms.uZenith.value.copy(dayZenith).lerp(nightZenith, nm);
+    domeUniforms.uHaze.value.copy(dayHaze).lerp(nightHaze, nm);
 
     // stars
     starUniforms.uTime.value = state.clock.elapsedTime;
@@ -235,6 +243,7 @@ export default function Sky() {
           `}
           fragmentShader={`
             uniform vec3 uHorizon; uniform vec3 uMid; uniform vec3 uZenith;
+            uniform vec3 uHaze;
             varying float vH;
             void main(){
               // wide, overlapping transitions so the haze melts gradually into
@@ -243,6 +252,11 @@ export default function Sky() {
               float t2 = smoothstep(0.2, 1.05, vH);
               vec3 col = mix(uHorizon, uMid, t1);
               col = mix(col, uZenith, t2);
+              // luminous horizon bloom: peaks at the skyline and falls off
+              // upward, so the field is backlit by a soft magical haze
+              float haze = smoothstep(0.36, -0.06, vH);
+              haze = pow(haze, 1.5) * 0.95;
+              col = mix(col, uHaze, haze);
               // ordered-ish dither breaks up 8-bit banding in the dark gradient
               float dither = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
               col += (dither - 0.5) / 180.0;
