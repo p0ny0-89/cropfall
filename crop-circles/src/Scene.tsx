@@ -55,7 +55,8 @@ function FormationDriver() {
 // exploring, and a walkable first-person "street view" when you drop into a
 // path. Scrolling out of first-person returns to the aerial view.
 function CameraSystem() {
-  const { camera, pointer } = useThree();
+  const { camera, pointer, gl } = useThree();
+  const pointerInside = useRef(true);
   const el = useRef(THREE.MathUtils.degToRad(57));
   const az = useRef(0);
   const rad = useRef(39);
@@ -85,6 +86,24 @@ function CameraSystem() {
       fpAim.current.y = 0;
     }
   }, [mode]);
+
+  // track whether the cursor is actually over the canvas, so edge-turning stops
+  // when the mouse leaves the viewport (R3F otherwise keeps its last position)
+  useEffect(() => {
+    const el = gl.domElement;
+    const inside = () => (pointerInside.current = true);
+    const outside = () => (pointerInside.current = false);
+    el.addEventListener("pointerenter", inside);
+    el.addEventListener("pointermove", inside);
+    el.addEventListener("pointerleave", outside);
+    window.addEventListener("blur", outside);
+    return () => {
+      el.removeEventListener("pointerenter", inside);
+      el.removeEventListener("pointermove", inside);
+      el.removeEventListener("pointerleave", outside);
+      window.removeEventListener("blur", outside);
+    };
+  }, [gl]);
 
   // keyboard nav + scroll-to-exit
   useEffect(() => {
@@ -119,15 +138,23 @@ function CameraSystem() {
       const turn = 1.7 * dt;
       const speed = 8.5 * dt;
 
-      // base heading: turn with the arrow keys for big rotations
-      if (k.has("ArrowLeft")) fpYaw.current += turn;
-      if (k.has("ArrowRight")) fpYaw.current -= turn;
-
       // FPS-style aim: the cursor POSITION maps to a look offset and holds
-      // where you point (no constant drift). Smoothed so it isn't jittery.
+      // where you point (no constant drift in the middle). Smoothed.
       fpAim.current.x = THREE.MathUtils.damp(fpAim.current.x, pointer.x, 9, dt);
       fpAim.current.y = THREE.MathUtils.damp(fpAim.current.y, pointer.y, 9, dt);
-      const yaw = fpYaw.current - fpAim.current.x * 0.95; // ±~54°
+
+      // turn the base heading: arrow keys, OR push the cursor to the very edge
+      // to keep rotating past the aim range (only engages near the edge, so the
+      // middle still holds steady)
+      if (k.has("ArrowLeft")) fpYaw.current += turn;
+      if (k.has("ArrowRight")) fpYaw.current -= turn;
+      const ax = fpAim.current.x;
+      const edge = 0.82;
+      if (pointerInside.current && Math.abs(ax) > edge) {
+        fpYaw.current -= Math.sign(ax) * ((Math.abs(ax) - edge) / (1 - edge)) * 1.7 * dt;
+      }
+
+      const yaw = fpYaw.current - fpAim.current.x * 0.9; // ±~51° plus edge-turn
       const pitch = THREE.MathUtils.clamp(fpAim.current.y * 0.7, -0.95, 0.95);
 
       const fx = Math.sin(yaw);
