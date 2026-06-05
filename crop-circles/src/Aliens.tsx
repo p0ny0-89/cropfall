@@ -76,7 +76,7 @@ function AliensImpl() {
   const aliens = useRef<Alien[]>(
     Array.from({ length: COUNT }, () => ({
       phase: "hidden" as Phase,
-      timer: 1 + Math.random() * 4,
+      timer: 2 + Math.random() * 6,
       t: 0,
       life: 0,
       op: 0,
@@ -124,7 +124,7 @@ function AliensImpl() {
         a.op = damp(a.op, 0, 6, dt);
         if (a.op < 0.02 && a.phase !== "hidden") {
           a.phase = "hidden";
-          a.timer = 2 + Math.random() * 5;
+          a.timer = 4 + Math.random() * 8;
         }
         mat.opacity = a.op;
         g.visible = a.op > 0.01;
@@ -146,7 +146,7 @@ function AliensImpl() {
           a.op = env;
           if (a.t >= a.life) {
             a.phase = "hidden";
-            a.timer = 2.5 + Math.random() * 5;
+            a.timer = 7 + Math.random() * 9;
           }
           break;
         }
@@ -157,7 +157,7 @@ function AliensImpl() {
           a.op = Math.sin(Math.min(1, a.t / a.life) * Math.PI);
           if (a.t >= a.life) {
             a.phase = "hidden";
-            a.timer = 3 + Math.random() * 6;
+            a.timer = 7 + Math.random() * 9;
           }
           break;
         }
@@ -166,8 +166,29 @@ function AliensImpl() {
       g.position.copy(a.pos);
       mat.opacity = a.op;
       g.visible = a.op > 0.01;
-      g.rotation.y =
-        Math.atan2(camera.position.x - a.pos.x, camera.position.z - a.pos.z) + FACE_OFFSET;
+
+      // orientation:
+      //  - scurrying → face the direction it's running
+      //  - peeping in the foreground (between viewer & centre) → face the
+      //    crop-circle centre (no direct stare when it's close/large)
+      //  - peeping from beyond the circle (a distant glimpse) → face the viewer
+      let tx: number;
+      let tz: number;
+      if (a.phase === "scurry") {
+        tx = a.pos.x + a.vel.x;
+        tz = a.pos.z + a.vel.z;
+      } else {
+        const camDist = Math.hypot(camera.position.x, camera.position.z);
+        const toCam = Math.hypot(camera.position.x - a.pos.x, camera.position.z - a.pos.z);
+        if (toCam < camDist * 0.95) {
+          tx = 0; // foreground → look toward the formation centre
+          tz = 0;
+        } else {
+          tx = camera.position.x; // distant peep → look toward the viewer
+          tz = camera.position.z;
+        }
+      }
+      g.rotation.y = Math.atan2(tx - a.pos.x, tz - a.pos.z) + FACE_OFFSET;
     }
   });
 
