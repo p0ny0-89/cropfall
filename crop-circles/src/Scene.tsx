@@ -10,6 +10,7 @@ import { useStore } from "./store";
 import { paletteFor } from "./theme";
 import { pathHit } from "./patterns";
 import { fpLive } from "./fpLive";
+import { footstep } from "./audio";
 
 const FORM_DURATION = 6.5; // seconds for a full formation
 const EYE = 1.7; // first-person eye height
@@ -59,8 +60,9 @@ function CameraSystem() {
   const az = useRef(0);
   const rad = useRef(39);
   const fpPos = useRef(new THREE.Vector3(0, EYE, 0));
-  const fpYaw = useRef(0);
-  const fpPitch = useRef(0);
+  const fpYaw = useRef(0); // base heading (turned by A/D / arrows)
+  const fpAim = useRef({ x: 0, y: 0 }); // smoothed cursor for FPS-style aim
+  const stepTimer = useRef(0); // footstep cadence while walking
   const look = useRef(new THREE.Vector3(0, 1.2, 0));
   const keys = useRef<Set<string>>(new Set());
   const center = useMemo(() => new THREE.Vector3(0, 1.2, 0), []);
@@ -79,7 +81,8 @@ function CameraSystem() {
       const s = useStore.getState().fpStart;
       fpPos.current.set(s.x, EYE, s.z);
       fpYaw.current = s.yaw;
-      fpPitch.current = 0;
+      fpAim.current.x = 0;
+      fpAim.current.y = 0;
     }
   }, [mode]);
 
@@ -113,43 +116,44 @@ function CameraSystem() {
 
     if (s.mode === "fp") {
       const k = keys.current;
-      const turn = 1.8 * dt;
+      const turn = 1.7 * dt;
       const speed = 8.5 * dt;
 
-      // mouse-look: cursor offset from centre turns the view (dead-zone in the
-      // middle). No pointer-lock needed, so it works inside any iframe.
-      const dz = 0.22;
-      const lookRate = 2.2;
-      const edge = (v: number) =>
-        Math.abs(v) > dz ? (v - Math.sign(v) * dz) / (1 - dz) : 0;
-      fpYaw.current -= edge(pointer.x) * lookRate * dt;
-      fpPitch.current = THREE.MathUtils.clamp(
-        fpPitch.current + edge(pointer.y) * lookRate * dt,
-        -1.1,
-        1.1
-      );
-
+      // base heading: turn with the arrow keys for big rotations
       if (k.has("ArrowLeft")) fpYaw.current += turn;
       if (k.has("ArrowRight")) fpYaw.current -= turn;
-      const fx = Math.sin(fpYaw.current);
-      const fz = Math.cos(fpYaw.current);
-      const rx = -Math.cos(fpYaw.current); // screen-right strafe vector
-      const rz = Math.sin(fpYaw.current);
+
+      // FPS-style aim: the cursor POSITION maps to a look offset and holds
+      // where you point (no constant drift). Smoothed so it isn't jittery.
+      fpAim.current.x = THREE.MathUtils.damp(fpAim.current.x, pointer.x, 9, dt);
+      fpAim.current.y = THREE.MathUtils.damp(fpAim.current.y, pointer.y, 9, dt);
+      const yaw = fpYaw.current - fpAim.current.x * 0.95; // ±~54°
+      const pitch = THREE.MathUtils.clamp(fpAim.current.y * 0.7, -0.95, 0.95);
+
+      const fx = Math.sin(yaw);
+      const fz = Math.cos(yaw);
+      const rx = -Math.cos(yaw); // screen-right strafe vector
+      const rz = Math.sin(yaw);
+      let moving = false;
       if (k.has("ArrowUp") || k.has("KeyW")) {
         fpPos.current.x += fx * speed;
         fpPos.current.z += fz * speed;
+        moving = true;
       }
       if (k.has("ArrowDown") || k.has("KeyS")) {
         fpPos.current.x -= fx * speed;
         fpPos.current.z -= fz * speed;
+        moving = true;
       }
       if (k.has("KeyD")) {
         fpPos.current.x += rx * speed;
         fpPos.current.z += rz * speed;
+        moving = true;
       }
       if (k.has("KeyA")) {
         fpPos.current.x -= rx * speed;
         fpPos.current.z -= rz * speed;
+        moving = true;
       }
       const d = Math.hypot(fpPos.current.x, fpPos.current.z);
       const maxR = 52;
@@ -159,19 +163,25 @@ function CameraSystem() {
       }
       fpPos.current.y = EYE;
 
+      // footsteps through the wheat (only when the ambience is on)
+      if (moving) {
+        stepTimer.current -= dt;
+        if (stepTimer.current <= 0) {
+          if (useStore.getState().sound) footstep();
+          stepTimer.current = 0.42 + Math.random() * 0.07;
+        }
+      } else if (stepTimer.current > 0.12) {
+        stepTimer.current = 0.12;
+      }
+
       fpLive.x = fpPos.current.x;
       fpLive.z = fpPos.current.z;
-      fpLive.yaw = fpYaw.current;
+      fpLive.yaw = yaw;
 
-      // look direction from yaw + mouse pitch
-      const cp = Math.cos(fpPitch.current);
-      lookTarget.set(
-        fpPos.current.x + fx * cp * 6,
-        EYE + Math.sin(fpPitch.current) * 6,
-        fpPos.current.z + fz * cp * 6
-      );
+      const cp = Math.cos(pitch);
+      lookTarget.set(fpPos.current.x + fx * cp * 6, EYE + Math.sin(pitch) * 6, fpPos.current.z + fz * cp * 6);
       dampVec(camera.position, fpPos.current, 6, dt); // smooth drop-in, then tracks
-      dampVec(look.current, lookTarget, 16, dt); // crisp, responsive mouse-look
+      dampVec(look.current, lookTarget, 16, dt);
       camera.lookAt(look.current);
       prevMode.current = "fp";
       return;

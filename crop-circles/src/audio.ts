@@ -142,6 +142,82 @@ function loop() {
   timer = window.setTimeout(loop, 200 + Math.random() * 650);
 }
 
+// shared noise buffer for footsteps / rustles
+let noiseBuf: AudioBuffer | null = null;
+function noise(): AudioBuffer {
+  if (!noiseBuf) noiseBuf = whiteBuffer(1);
+  return noiseBuf;
+}
+
+// one footstep through the wheat — a soft low thud + a crunchy noise burst
+export function footstep() {
+  if (!ctx || !master) return;
+  const c = ctx;
+  const t = c.currentTime;
+  const pan = c.createStereoPanner();
+  pan.pan.value = (Math.random() - 0.5) * 0.3;
+  pan.connect(master);
+
+  // crunch (band-passed noise)
+  const src = c.createBufferSource();
+  src.buffer = noise();
+  const bp = c.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.value = 1300 * (0.8 + Math.random() * 0.5);
+  bp.Q.value = 0.7;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.14, t + 0.006);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+  src.connect(bp).connect(g).connect(pan);
+  src.start(t);
+  src.stop(t + 0.16);
+
+  // soft thud
+  const o = c.createOscillator();
+  o.type = "sine";
+  o.frequency.setValueAtTime(115, t);
+  o.frequency.exponentialRampToValueAtTime(58, t + 0.1);
+  const og = c.createGain();
+  og.gain.setValueAtTime(0.11, t);
+  og.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+  o.connect(og).connect(pan);
+  o.start(t);
+  o.stop(t + 0.14);
+}
+
+// faint, distant rustle as an alien scurries through the stalks
+export function rustle(pan = 0, dur = 1.4) {
+  if (!ctx || !master) return;
+  const c = ctx;
+  const t = c.currentTime;
+  const src = c.createBufferSource();
+  src.buffer = noise();
+  src.loop = true;
+  const bp = c.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.value = 3000;
+  bp.Q.value = 1.1;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.045, t + dur * 0.35);
+  g.gain.linearRampToValueAtTime(0.0001, t + dur);
+  const sp = c.createStereoPanner();
+  sp.pan.value = Math.max(-1, Math.min(1, pan));
+  // tremolo gives it a stalk-brushing texture
+  const lfo = c.createOscillator();
+  lfo.type = "sine";
+  lfo.frequency.value = 17;
+  const lg = c.createGain();
+  lg.gain.value = 0.02;
+  lfo.connect(lg).connect(g.gain);
+  src.connect(bp).connect(g).connect(sp).connect(master);
+  lfo.start(t);
+  lfo.stop(t + dur + 0.05);
+  src.start(t);
+  src.stop(t + dur + 0.05);
+}
+
 export function setSoundEnabled(on: boolean) {
   try {
     if (on) {

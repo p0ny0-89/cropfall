@@ -138,7 +138,7 @@ export default function ControlPanel() {
         transition={{ duration: 1 }}
       >
         {mode === "fp"
-          ? "W A S D / arrows to move · cursor edges to look · scroll out or esc to exit"
+          ? "W A S D to move · arrows to turn · move mouse to look · scroll out to exit"
           : "move cursor to explore · click a glowing path to step inside"}
       </motion.div>
 

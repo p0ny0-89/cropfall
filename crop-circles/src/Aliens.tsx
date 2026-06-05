@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { useFrame, useThree, useLoader } from "@react-three/fiber";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { useStore } from "./store";
+import { rustle } from "./audio";
 
 // A couple of little grey aliens that peep up between the standing crops and
 // duck back down — and occasionally scurry across the field. Only shown in
@@ -10,7 +11,7 @@ import { useStore } from "./store";
 // lit by the scene and tinted per theme (periwinkle night / cream day) so it
 // blends with the field; the baked-dark eyes stay dark through the tint.
 
-const COUNT = 2;
+const COUNT = 3;
 const MODEL = `${import.meta.env.BASE_URL}alien.obj`;
 const TEX = `${import.meta.env.BASE_URL}alien-diffuse.jpg`;
 const SCALE = 0.58; // model is ~4.3u tall → ~2.5u
@@ -75,7 +76,7 @@ function AliensImpl() {
   const aliens = useRef<Alien[]>(
     Array.from({ length: COUNT }, () => ({
       phase: "hidden" as Phase,
-      timer: 4 + Math.random() * 9,
+      timer: 1 + Math.random() * 4,
       t: 0,
       life: 0,
       op: 0,
@@ -103,6 +104,8 @@ function AliensImpl() {
     a.life = 1.5 + Math.random() * 1.1;
     a.t = 0;
     a.phase = "scurry";
+    // faint distant rustle through the stalks, panned to its side
+    if (useStore.getState().sound) rustle(Math.max(-0.8, Math.min(0.8, a.pos.x / 40)), a.life);
   };
 
   useFrame((_, dt) => {
@@ -121,7 +124,7 @@ function AliensImpl() {
         a.op = damp(a.op, 0, 6, dt);
         if (a.op < 0.02 && a.phase !== "hidden") {
           a.phase = "hidden";
-          a.timer = 5 + Math.random() * 9;
+          a.timer = 2 + Math.random() * 5;
         }
         mat.opacity = a.op;
         g.visible = a.op > 0.01;
@@ -143,7 +146,7 @@ function AliensImpl() {
           a.op = env;
           if (a.t >= a.life) {
             a.phase = "hidden";
-            a.timer = 9 + Math.random() * 13;
+            a.timer = 2.5 + Math.random() * 5;
           }
           break;
         }
@@ -154,7 +157,7 @@ function AliensImpl() {
           a.op = Math.sin(Math.min(1, a.t / a.life) * Math.PI);
           if (a.t >= a.life) {
             a.phase = "hidden";
-            a.timer = 10 + Math.random() * 13;
+            a.timer = 3 + Math.random() * 6;
           }
           break;
         }
