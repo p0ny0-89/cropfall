@@ -118,8 +118,20 @@ export default function Orbs() {
       opacity.current[o] = THREE.MathUtils.damp(opacity.current[o], targetOpacity, 3, dt);
       const op = opacity.current[o];
 
-      tmpTarget.set(tx, ty, tz);
-      v.group.position.lerp(tmpTarget, 1 - Math.pow(0.001, dt));
+      // While actively carving, pin the orb to the carve front in XZ so it
+      // leads the lay instead of trailing inside already-flattened crops (the
+      // smoothed lerp lagged badly on long single strokes). Ease Y so the
+      // dive-down / lift-off still feel smooth. Off-stroke travel keeps the
+      // soft lerp.
+      const pos = v.group.position;
+      if (active) {
+        pos.x = tx;
+        pos.z = tz;
+        pos.y = THREE.MathUtils.damp(pos.y, ty, 9, dt);
+      } else {
+        tmpTarget.set(tx, ty, tz);
+        pos.lerp(tmpTarget, 1 - Math.pow(0.001, dt));
+      }
 
       // beam: stretch from orb down to the soil, only while actively carving
       const beamOn = active ? 1 : 0;
