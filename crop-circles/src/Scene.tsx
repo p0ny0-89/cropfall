@@ -27,24 +27,30 @@ function dampVec(v: THREE.Vector3, t: THREE.Vector3, rate: number, dt: number) {
 }
 
 // Drives formProgress 0->1 and flips phase intro->forming->explore.
+// Accumulates a *clamped* per-frame delta rather than reading absolute clock
+// time: starting a formation runs computeCarve over ~400k stalks (a one-frame
+// stall), and the field is often still loading — using raw elapsed time would
+// leap progress to ~1 in that single long frame, so the orbs never visibly
+// carve. Capping the step keeps the reveal at a steady ~FORM_DURATION.
 function FormationDriver() {
   const lastToken = useRef(-1);
-  const startT = useRef(0);
-  useFrame((state) => {
+  const prog = useRef(0);
+  useFrame((_, delta) => {
     const s = useStore.getState();
     if (s.formToken !== lastToken.current) {
       lastToken.current = s.formToken;
-      startT.current = state.clock.elapsedTime;
+      prog.current = 0;
       s.setPhase("forming");
       s.setProgress(0);
     }
     if (s.phase === "forming") {
-      const e = (state.clock.elapsedTime - startT.current) / FORM_DURATION;
-      if (e >= 1) {
+      prog.current += Math.min(delta, 0.05) / FORM_DURATION;
+      if (prog.current >= 1) {
+        prog.current = 1;
         s.setProgress(1);
         s.setPhase("explore");
       } else {
-        s.setProgress(easeInOut(Math.max(0, e)));
+        s.setProgress(easeInOut(prog.current));
       }
     }
   });
