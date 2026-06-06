@@ -3,11 +3,15 @@ import {
   PATTERNS,
   getPattern,
   buildCustomPattern,
+  buildPattern,
+  NUM_ORBS,
   DEFAULT_CUSTOM,
   type Pattern,
   type CustomSettings,
+  type FormationPaths,
 } from "./patterns";
 import { fpLive } from "./fpLive";
+import { clearShareHash } from "./share";
 
 export type Phase = "intro" | "forming" | "explore";
 export type Theme = "day" | "night";
@@ -18,6 +22,7 @@ interface State {
   phase: Phase;
   theme: Theme;
   cropColor: string | null; // custom crop hue; null = follow the theme default
+  drawOpen: boolean; // the "draw your own" modal
   sound: boolean; // ambience on/off
   mode: ViewMode; // aerial orbit vs first-person street view
   fpStart: { x: number; z: number; yaw: number }; // where a drop-in begins
@@ -28,11 +33,14 @@ interface State {
   activePattern: Pattern;
   customSettings: CustomSettings;
   selectPattern: (id: string) => void;
+  // carve an arbitrary hand-drawn / shared doodle (field-space paths + brush)
+  carveDrawing: (paths: FormationPaths, radius?: number) => void;
   setPhase: (p: Phase) => void;
   setProgress: (n: number) => void;
   reform: () => void;
   toggleTheme: () => void;
   setCropColor: (c: string | null) => void;
+  setDrawOpen: (b: boolean) => void;
   toggleSound: () => void;
   enterFirstPerson: (x: number, z: number, yaw: number) => void;
   exitFirstPerson: () => void;
@@ -51,6 +59,7 @@ export const useStore = create<State>((set, get) => ({
   // overnight, then can switch to day to see it the morning after.
   theme: "night",
   cropColor: null,
+  drawOpen: false,
   sound: false,
   mode: "aerial",
   fpStart: { x: 0, z: 0, yaw: 0 },
@@ -60,9 +69,11 @@ export const useStore = create<State>((set, get) => ({
   activePattern: getPattern(PATTERNS[0].id),
   toggleTheme: () => set((s) => ({ theme: s.theme === "day" ? "night" : "day" })),
   setCropColor: (c) => set({ cropColor: c }),
+  setDrawOpen: (b) => set({ drawOpen: b }),
   toggleSound: () => set((s) => ({ sound: !s.sound })),
   selectPattern: (id) => {
     if (id === get().patternId && get().phase === "forming") return;
+    clearShareHash(); // leaving a shared/drawn formation; don't let a refresh restore it
     set((s) => ({
       patternId: id,
       activePattern: resolve(id, s.customSettings),
@@ -72,10 +83,20 @@ export const useStore = create<State>((set, get) => ({
       formToken: s.formToken + 1,
     }));
   },
+  carveDrawing: (paths, radius = 1.3) =>
+    set((s) => ({
+      activePattern: buildPattern("drawn", "Your Drawing", paths, radius, NUM_ORBS),
+      patternId: "drawn",
+      mode: "aerial",
+      phase: "intro",
+      formProgress: 0,
+      formToken: s.formToken + 1,
+    })),
   reform: () =>
     set((s) => ({
-      // rebuild custom from the latest lab settings; presets stay as-is
-      activePattern: resolve(s.patternId, s.customSettings),
+      // rebuild custom from the latest lab settings; presets stay as-is; a
+      // hand-drawn formation is preserved (re-carved as the same drawing)
+      activePattern: s.patternId === "drawn" ? s.activePattern : resolve(s.patternId, s.customSettings),
       phase: "intro",
       mode: "aerial",
       formProgress: 0,

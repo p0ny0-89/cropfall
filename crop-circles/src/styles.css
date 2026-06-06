@@ -115,6 +115,268 @@ canvas {
   transform: scale(1.05);
 }
 
+/* the "Draw" list entry swaps the dot for a pencil glyph */
+.draw-entry .draw-icon {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+  margin-right: -6px; /* trim footprint so the label lines up with the dot rows */
+  transition: color 0.2s;
+}
+.draw-entry:hover .draw-icon,
+.draw-entry.active .draw-icon {
+  color: var(--accent);
+}
+
+/* share link button revealed on the right of the Draw entry */
+.pattern-btn .share-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  color: var(--text-dim);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.18s, color 0.18s, background 0.18s;
+}
+.draw-entry:hover .share-btn,
+.draw-entry.active .share-btn {
+  opacity: 0.75;
+}
+.pattern-btn .share-btn:hover {
+  opacity: 1;
+  color: var(--text-strong);
+  background: var(--accent-soft);
+}
+.pattern-btn .share-btn.copied {
+  opacity: 1;
+  color: var(--accent);
+}
+
+/* ---- draw pad modal ---- */
+.drawpad-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  background: rgba(8, 6, 2, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: auto;
+}
+
+.drawpad {
+  width: min(94vw, 440px);
+  padding: 20px;
+  background: var(--glass-float);
+  backdrop-filter: blur(20px) saturate(1.15);
+  -webkit-backdrop-filter: blur(20px) saturate(1.15);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+}
+
+.drawpad-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.drawpad-title {
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.drawpad-sub {
+  margin-top: 5px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  letter-spacing: 0.01em;
+  max-width: 280px;
+}
+
+.drawpad-x {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.drawpad-x:hover {
+  background: var(--accent-soft);
+  color: var(--text-strong);
+}
+
+.drawpad-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.22);
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.drawpad-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.drawpad-spacer {
+  flex: 1 1 auto;
+}
+
+.drawpad-tool {
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 7px 11px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s, opacity 0.2s;
+}
+.drawpad-tool:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--text-strong);
+}
+.drawpad-tool:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* undo / redo icon buttons */
+.drawpad-iconbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 30px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s, opacity 0.2s;
+}
+.drawpad-iconbtn svg {
+  width: 15px;
+  height: 15px;
+}
+.drawpad-iconbtn:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--text-strong);
+}
+.drawpad-iconbtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* brush size stepper */
+.brush-ctl {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.brush-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s, opacity 0.2s;
+}
+.brush-btn:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--text-strong);
+}
+.brush-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.brush-dot {
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px 1px var(--accent-soft);
+  transition: width 0.15s, height 0.15s;
+}
+
+.drawpad-share-btn {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.drawpad-share-note {
+  margin-top: 10px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.drawpad-carve {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-strong);
+  background: var(--accent-soft);
+  border: 1px solid var(--border-strong);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background 0.25s, transform 0.15s, opacity 0.2s;
+}
+.drawpad-carve:hover:not(:disabled) {
+  background: var(--accent);
+  color: #2a1d05;
+}
+.drawpad-carve:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.drawpad-carve:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .sound-toggle {
   bottom: 28px;
   right: 28px;
@@ -159,11 +421,11 @@ canvas {
 }
 
 .panel-label {
-  font-size: 18px;
+  font-size: 12px;
   font-weight: 400;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.036em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--text);
   margin-bottom: 12px;
   padding-left: 2px;
 }

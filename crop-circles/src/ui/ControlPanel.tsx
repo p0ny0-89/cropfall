@@ -30,6 +30,31 @@ function CloseIcon() {
   );
 }
 
+function PencilIcon() {
+  return (
+    <svg className="draw-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="M14.5 4.5l5 5M3 21l1.2-4.2L16 5a2.1 2.1 0 0 1 3 3L7.2 19.8 3 21z" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function LinkIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1" />
+      <path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 12l5 5L20 6" />
+    </svg>
+  );
+}
+
 export default function ControlPanel() {
   const patternId = useStore((s) => s.patternId);
   const phase = useStore((s) => s.phase);
@@ -40,7 +65,18 @@ export default function ControlPanel() {
   const toggleTheme = useStore((s) => s.toggleTheme);
   const cropColor = useStore((s) => s.cropColor);
   const setCropColor = useStore((s) => s.setCropColor);
+  const setDrawOpen = useStore((s) => s.setDrawOpen);
   const [open, setOpen] = useState(true);
+  const [copiedDraw, setCopiedDraw] = useState(false);
+
+  // copy the current drawing's share link straight from the panel (the carve
+  // step already stored it in the URL hash) — no need to reopen the canvas
+  const shareDraw = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    navigator.clipboard?.writeText(window.location.href).catch(() => {});
+    setCopiedDraw(true);
+    window.setTimeout(() => setCopiedDraw(false), 1600);
+  };
 
   const forming = phase === "forming";
   // what the native picker shows when no custom colour is set yet
@@ -91,6 +127,28 @@ export default function ControlPanel() {
               >
                 <span className="dot" />
                 Formation Lab
+              </button>
+              <button
+                className={"pattern-btn draw-entry" + (patternId === "drawn" ? " active" : "")}
+                onClick={() => setDrawOpen(true)}
+              >
+                <PencilIcon />
+                Draw
+                {patternId === "drawn" && (
+                  <span
+                    className={"share-btn" + (copiedDraw ? " copied" : "")}
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Copy share link"
+                    title={copiedDraw ? "Link copied" : "Copy share link"}
+                    onClick={shareDraw}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") shareDraw(e);
+                    }}
+                  >
+                    {copiedDraw ? <CheckIcon /> : <LinkIcon />}
+                  </span>
+                )}
               </button>
             </div>
 
