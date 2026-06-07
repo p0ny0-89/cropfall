@@ -9,6 +9,18 @@ let built = false;
 let running = false;
 let timer: number | null = null;
 
+// a UFO hum bed while the orbs fly (gain nudged each frame); the crops-falling
+// layer is emitted as soft granular rustle ticks instead of a continuous bed.
+let orbHum: GainNode | null = null;
+let lastHum = -1;
+
+// the ambient bed (crickets, wind, shimmer, drone, alien rustle) routes through
+// this so it can be ducked down while a formation is being carved, letting the
+// UFO hum + rustle take the foreground.
+let ambientGain: GainNode | null = null;
+let lastDuck = -1;
+const ambientOut = () => ambientGain ?? master!;
+
 function whiteBuffer(seconds: number): AudioBuffer {
   const len = Math.floor(ctx!.sampleRate * seconds);
   const buf = ctx!.createBuffer(1, len, ctx!.sampleRate);
@@ -33,6 +45,11 @@ function brownBuffer(seconds: number): AudioBuffer {
 // continuous beds: soft wind + a faint shimmering wash of distant insects
 function buildBed() {
   const c = ctx!;
+  // ambient sub-bus (duckable while forming)
+  ambientGain = c.createGain();
+  ambientGain.gain.value = 1;
+  ambientGain.connect(master!);
+
   // wind
   const wind = c.createBufferSource();
   wind.buffer = brownBuffer(4);
@@ -42,7 +59,7 @@ function buildBed() {
   wlp.frequency.value = 320;
   const wg = c.createGain();
   wg.gain.value = 0.05;
-  wind.connect(wlp).connect(wg).connect(master!);
+  wind.connect(wlp).connect(wg).connect(ambientGain);
   const wlfo = c.createOscillator();
   wlfo.frequency.value = 0.06;
   const wlg = c.createGain();
@@ -61,7 +78,7 @@ function buildBed() {
   bp.Q.value = 7;
   const sg = c.createGain();
   sg.gain.value = 0.013;
-  sh.connect(bp).connect(sg).connect(master!);
+  sh.connect(bp).connect(sg).connect(ambientGain);
   const trem = c.createOscillator();
   trem.type = "sine";
   trem.frequency.value = 6.5;
@@ -77,8 +94,86 @@ function buildBed() {
   drone.frequency.value = 68;
   const dg = c.createGain();
   dg.gain.value = 0.02;
-  drone.connect(dg).connect(master!);
+  drone.connect(dg).connect(ambientGain);
   drone.start();
+
+  buildOrbHum();
+}
+
+// Low UFO hum: two slightly detuned low oscillators (slow beating) with a gentle
+// pitch wobble, plus a thin electric harmonic with tremolo. Gain stays at 0
+// until setOrbHum() opens it while the orbs are flying.
+function buildOrbHum() {
+  const c = ctx!;
+  const out = c.createGain();
+  out.gain.value = 0;
+  out.connect(master!);
+  orbHum = out;
+
+  const base = 76;
+  [0, 1].forEach((i) => {
+    const o = c.createOscillator();
+    o.type = i === 0 ? "sine" : "triangle";
+    o.frequency.value = base * (i === 0 ? 1 : 1.006);
+    // slow vibrato for the wobbly hovering feel
+    const vib = c.createOscillator();
+    vib.type = "sine";
+    vib.frequency.value = 0.17 + i * 0.06;
+    const vg = c.createGain();
+    vg.gain.value = 2.4;
+    vib.connect(vg).connect(o.frequency);
+    const og = c.createGain();
+    og.gain.value = i === 0 ? 0.55 : 0.34;
+    o.connect(og).connect(out);
+    vib.start();
+    o.start();
+  });
+
+  // buzzy mid overtone so the hum is audible on laptop speakers (a pure ~76Hz
+  // tone barely reproduces). Band-pass swept slowly for the classic UFO "waver".
+  const saw = c.createOscillator();
+  saw.type = "sawtooth";
+  saw.frequency.value = base * 2;
+  const bp = c.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.value = 430;
+  bp.Q.value = 5;
+  const fsweep = c.createOscillator();
+  fsweep.type = "sine";
+  fsweep.frequency.value = 0.22;
+  const fsg = c.createGain();
+  fsg.gain.value = 230;
+  fsweep.connect(fsg).connect(bp.frequency);
+  const sg = c.createGain();
+  sg.gain.value = 0.1;
+  const trem = c.createOscillator();
+  trem.type = "sine";
+  trem.frequency.value = 5;
+  const tg = c.createGain();
+  tg.gain.value = 0.05;
+  trem.connect(tg).connect(sg.gain);
+  saw.connect(bp).connect(sg).connect(out);
+  fsweep.start();
+  saw.start();
+  trem.start();
+}
+
+// 0..1 — how present the UFO hum is (driven by orb activity)
+export function setOrbHum(level: number) {
+  if (!ctx || !orbHum) return;
+  const v = Math.max(0, Math.min(1, level));
+  if (Math.abs(v - lastHum) < 0.01) return;
+  lastHum = v;
+  orbHum.gain.setTargetAtTime(v * 0.26, ctx.currentTime, 0.3);
+}
+
+// 0..1 — ambient bed level (ducked while forming so the UFO/carve layer leads)
+export function setAmbientDuck(level: number) {
+  if (!ctx || !ambientGain) return;
+  const v = Math.max(0, Math.min(1, level));
+  if (Math.abs(v - lastDuck) < 0.01) return;
+  lastDuck = v;
+  ambientGain.gain.setTargetAtTime(v, ctx.currentTime, 0.4);
 }
 
 interface Voice {
@@ -117,7 +212,7 @@ function pulse(t: number, v: Voice, panVal: number) {
   const pan = c.createStereoPanner();
   pan.pan.value = panVal;
 
-  osc.connect(g).connect(pan).connect(master);
+  osc.connect(g).connect(pan).connect(ambientOut());
   osc.start(t);
   osc.stop(t + v.decay + 0.02);
 }
@@ -211,7 +306,7 @@ export function rustle(pan = 0, dur = 1.4) {
   const lg = c.createGain();
   lg.gain.value = 0.02;
   lfo.connect(lg).connect(g.gain);
-  src.connect(bp).connect(g).connect(sp).connect(master);
+  src.connect(bp).connect(g).connect(sp).connect(ambientOut());
   lfo.start(t);
   lfo.stop(t + dur + 0.05);
   src.start(t);
@@ -257,4 +352,26 @@ export function setSoundEnabled(on: boolean) {
   } catch {
     /* audio unavailable — ignore */
   }
+}
+
+// Dev only: when this module is hot-reloaded, tear down the live AudioContext so
+// we don't leave an orphaned one playing (which makes mute look broken and
+// stacks duplicate beds). Stripped from production builds.
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    try {
+      running = false;
+      if (timer) clearTimeout(timer);
+      ctx?.close();
+    } catch {
+      /* ignore */
+    }
+    ctx = null;
+    master = null;
+    built = false;
+    orbHum = null;
+    ambientGain = null;
+    lastHum = -1;
+    lastDuck = -1;
+  });
 }

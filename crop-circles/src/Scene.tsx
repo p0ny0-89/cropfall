@@ -10,7 +10,7 @@ import { useStore } from "./store";
 import { paletteFor } from "./theme";
 import { pathHit } from "./patterns";
 import { fpLive } from "./fpLive";
-import { footstep } from "./audio";
+import { footstep, setOrbHum, setAmbientDuck } from "./audio";
 
 const FORM_DURATION = 6.5; // seconds for a full formation
 const EYE = 1.7; // first-person eye height
@@ -63,6 +63,17 @@ function FormationDriver() {
   return null;
 }
 
+// Feeds formation state into the audio engine: a UFO hum while the orbs fly
+// (forming), and a duck on the ambient bed so the hum takes the foreground.
+function AudioDriver() {
+  useFrame(() => {
+    const forming = useStore.getState().phase === "forming";
+    setOrbHum(forming ? 1 : 0);
+    setAmbientDuck(forming ? 0.25 : 1);
+  });
+  return null;
+}
+
 // Camera: auto-orbiting aerial during formation, pointer parallax while
 // exploring, and a walkable first-person "street view" when you drop into a
 // path. Scrolling out of first-person returns to the aerial view.
@@ -72,6 +83,7 @@ function CameraSystem() {
   const el = useRef(THREE.MathUtils.degToRad(57));
   const az = useRef(BASE_AZ);
   const rad = useRef(39);
+  const fov = useRef(42);
   const fpPos = useRef(new THREE.Vector3(0, EYE, 0));
   const fpYaw = useRef(0); // base heading (turned by A/D / arrows)
   const fpAim = useRef({ x: 0, y: 0 }); // smoothed cursor for FPS-style aim
@@ -144,6 +156,17 @@ function CameraSystem() {
 
   useFrame((state, dt) => {
     const s = useStore.getState();
+
+    // widen the lens as the aerial camera rises to its peak so the whole
+    // formation frames up (cheaper + fog-safe vs. pulling the camera further out)
+    const py = (pSmooth.current.y + 1) / 2;
+    const tFov = s.mode === "aerial" && s.phase === "explore" ? THREE.MathUtils.lerp(42, 62, py) : 42;
+    fov.current = damp(fov.current, tFov, 1.8, dt);
+    const pcam = camera as THREE.PerspectiveCamera;
+    if (Math.abs(pcam.fov - fov.current) > 0.02) {
+      pcam.fov = fov.current;
+      pcam.updateProjectionMatrix();
+    }
 
     if (s.mode === "fp") {
       const k = keys.current;
@@ -246,11 +269,13 @@ function CameraSystem() {
     let tEl: number, tAz: number, tRad: number;
     if (s.phase === "explore") {
       const py = (pSmooth.current.y + 1) / 2;
-      tEl = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(16, 60, py));
+      // a touch more overhead at the peak; the wide FOV (below) does the rest of
+      // the framing without pushing the camera out into the fog
+      tEl = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(16, 64, py));
       // anchored to BASE_AZ with a limited two-way pointer orbit around it, so a
       // drawing reads upright by default and you choose where to look from
       tAz = BASE_AZ + AERIAL_AZ_RANGE * pSmooth.current.x;
-      tRad = THREE.MathUtils.lerp(21, 36, py);
+      tRad = THREE.MathUtils.lerp(21, 38, py);
     } else {
       tEl = THREE.MathUtils.degToRad(57);
       tAz = azSpin.current;
@@ -527,6 +552,7 @@ export default function Scene() {
 
       <CameraSystem />
       <FormationDriver />
+      <AudioDriver />
     </>
   );
 }
