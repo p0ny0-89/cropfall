@@ -172,7 +172,12 @@ canvas {
 }
 
 .drawpad {
-  width: min(94vw, 440px);
+  /* scale with viewport height (the canvas is square, so width follows) but
+     never overflow the width or the height; capped so it stays tasteful on
+     huge displays */
+  width: min(94vw, calc(96vh - 264px), 880px);
+  max-height: calc(100vh - 28px);
+  overflow-y: auto;
   padding: 20px;
   background: var(--glass-float);
   backdrop-filter: blur(20px) saturate(1.15);
@@ -180,6 +185,7 @@ canvas {
   border: 1px solid var(--border);
   border-radius: 20px;
   box-shadow: var(--shadow);
+  scrollbar-width: thin;
 }
 
 .drawpad-head {
