@@ -15,11 +15,31 @@ export type Drawing = { strokes: NStroke[]; brush: number };
 // the field radius a drawing is scaled to fill (< MAX_FORMATION_R = 22)
 export const FIT_R = 19;
 
+// resample a polyline so consecutive points are at most CARVE_STEP apart. Tool
+// strokes (line/shape) are stored as sparse vertices, but the carve engine only
+// flattens crops near actual points — so we subdivide segments here, otherwise
+// only the vertices carve and the edges between them stay standing.
+const CARVE_STEP = 0.01; // normalized spacing
+function densify(s: NStroke): NStroke {
+  if (s.length < 2) return s;
+  const out: NStroke = [s[0]];
+  for (let i = 1; i < s.length; i++) {
+    const [ax, ay] = s[i - 1];
+    const [bx, by] = s[i];
+    const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / CARVE_STEP));
+    for (let k = 1; k <= n; k++) {
+      const t = k / n;
+      out.push([ax + (bx - ax) * t, ay + (by - ay) * t]);
+    }
+  }
+  return out;
+}
+
 // normalized unit-square strokes -> field-space paths the carve engine consumes
 export function strokesToPaths(strokes: NStroke[]): FormationPaths {
   return strokes
     .filter((s) => s.length > 1)
-    .map((s) => s.map(([nx, ny]) => ({ x: (nx - 0.5) * 2 * FIT_R, z: (ny - 0.5) * 2 * FIT_R })));
+    .map((s) => densify(s).map(([nx, ny]) => ({ x: (nx - 0.5) * 2 * FIT_R, z: (ny - 0.5) * 2 * FIT_R })));
 }
 
 // ---- URL hash codec --------------------------------------------------------

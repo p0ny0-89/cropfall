@@ -225,6 +225,88 @@ canvas {
   color: var(--text-strong);
 }
 
+/* ---- draw pad toolbar (tools + shapes + symmetry) ---- */
+.drawpad-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 30px;
+  flex: 0 0 auto;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, border-color 0.18s;
+}
+.tool-btn svg {
+  width: 16px;
+  height: 16px;
+}
+.tool-btn:hover {
+  background: var(--accent-soft);
+  color: var(--text-strong);
+}
+.tool-btn.active {
+  background: var(--accent-soft);
+  border-color: var(--border-strong);
+  color: var(--text-strong);
+}
+
+.shape-picker {
+  display: flex;
+  gap: 4px;
+  padding-left: 4px;
+  margin-left: 2px;
+  border-left: 1px solid var(--border);
+}
+.shape-btn {
+  width: 28px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, border-color 0.18s;
+}
+.shape-btn:hover {
+  background: var(--accent-soft);
+  color: var(--text-strong);
+}
+.shape-btn.active {
+  background: var(--accent-soft);
+  border-color: var(--border-strong);
+  color: var(--accent);
+}
+
+.sym-count {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.sym-num {
+  min-width: 16px;
+  text-align: center;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-strong);
+}
+
 .drawpad-canvas {
   display: block;
   width: 100%;
