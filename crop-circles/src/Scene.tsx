@@ -15,6 +15,12 @@ import { footstep } from "./audio";
 const FORM_DURATION = 6.5; // seconds for a full formation
 const EYE = 1.7; // first-person eye height
 
+// The aerial orbit is anchored here so the field reads the same way up as the
+// drawing canvas (camera on +Z looking toward -Z => canvas X = screen X, canvas
+// "up" = away). The pointer then orbits this base both ways within a limit.
+const BASE_AZ = Math.PI / 2;
+const AERIAL_AZ_RANGE = THREE.MathUtils.degToRad(62);
+
 function easeInOut(t: number) {
   return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 }
@@ -64,7 +70,7 @@ function CameraSystem() {
   const { camera, pointer, gl } = useThree();
   const pointerInside = useRef(true);
   const el = useRef(THREE.MathUtils.degToRad(57));
-  const az = useRef(0);
+  const az = useRef(BASE_AZ);
   const rad = useRef(39);
   const fpPos = useRef(new THREE.Vector3(0, EYE, 0));
   const fpYaw = useRef(0); // base heading (turned by A/D / arrows)
@@ -75,7 +81,7 @@ function CameraSystem() {
   const center = useMemo(() => new THREE.Vector3(0, 1.2, 0), []);
   const desired = useMemo(() => new THREE.Vector3(), []);
   const lookTarget = useMemo(() => new THREE.Vector3(), []);
-  const azSpin = useRef(0); // continuous orbit accumulator — never jumps
+  const azSpin = useRef(BASE_AZ); // gentle cinematic drift while forming only
   const pSmooth = useRef({ x: 0, y: 0 }); // smoothed pointer (kills jitter)
   const blend = useRef(0); // 0..1 ease used for the intro + FP-exit glide
   const blendFrom = useRef(new THREE.Vector3());
@@ -233,21 +239,26 @@ function CameraSystem() {
     pSmooth.current.x = damp(pSmooth.current.x, pointer.x, 5, dt);
     pSmooth.current.y = damp(pSmooth.current.y, pointer.y, 5, dt);
 
-    // one continuous, slow orbit — accumulating means the target never lurches
-    // backward across the forming -> explore handoff
-    azSpin.current += (s.phase === "explore" ? 0.016 : 0.05) * dt;
+    // a gentle cinematic drift only while the formation is being carved; once it
+    // settles you steer the orbit yourself, anchored to the canvas orientation
+    if (s.phase !== "explore") azSpin.current += 0.05 * dt;
 
     let tEl: number, tAz: number, tRad: number;
     if (s.phase === "explore") {
       const py = (pSmooth.current.y + 1) / 2;
       tEl = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(16, 60, py));
-      tAz = azSpin.current + THREE.MathUtils.degToRad(22) * pSmooth.current.x;
+      // anchored to BASE_AZ with a limited two-way pointer orbit around it, so a
+      // drawing reads upright by default and you choose where to look from
+      tAz = BASE_AZ + AERIAL_AZ_RANGE * pSmooth.current.x;
       tRad = THREE.MathUtils.lerp(21, 36, py);
     } else {
       tEl = THREE.MathUtils.degToRad(57);
       tAz = azSpin.current;
       tRad = 39;
     }
+    // take the short way to the target angle (prevents a long unwind when the
+    // forming drift hands off to the anchored explore orbit)
+    az.current += Math.round((tAz - az.current) / (Math.PI * 2)) * Math.PI * 2;
     el.current = damp(el.current, tEl, 1.8, dt);
     az.current = damp(az.current, tAz, 1.8, dt);
     rad.current = damp(rad.current, tRad, 1.8, dt);
