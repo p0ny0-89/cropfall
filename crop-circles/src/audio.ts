@@ -110,7 +110,7 @@ function buildOrbHum() {
   out.connect(master!);
   orbHum = out;
 
-  const base = 76;
+  const base = 88;
   [0, 1].forEach((i) => {
     const o = c.createOscillator();
     o.type = i === 0 ? "sine" : "triangle";
@@ -120,14 +120,30 @@ function buildOrbHum() {
     vib.type = "sine";
     vib.frequency.value = 0.17 + i * 0.06;
     const vg = c.createGain();
-    vg.gain.value = 2.4;
+    vg.gain.value = 2.6;
     vib.connect(vg).connect(o.frequency);
     const og = c.createGain();
-    og.gain.value = i === 0 ? 0.55 : 0.34;
+    og.gain.value = i === 0 ? 0.6 : 0.38;
     o.connect(og).connect(out);
     vib.start();
     o.start();
   });
+
+  // an audible mid octave so the hum actually carries on laptop speakers
+  const oct = c.createOscillator();
+  oct.type = "sine";
+  oct.frequency.value = base * 2;
+  const octVib = c.createOscillator();
+  octVib.type = "sine";
+  octVib.frequency.value = 0.21;
+  const octVg = c.createGain();
+  octVg.gain.value = 4;
+  octVib.connect(octVg).connect(oct.frequency);
+  const octg = c.createGain();
+  octg.gain.value = 0.24;
+  oct.connect(octg).connect(out);
+  octVib.start();
+  oct.start();
 
   // buzzy mid overtone so the hum is audible on laptop speakers (a pure ~76Hz
   // tone barely reproduces). Band-pass swept slowly for the classic UFO "waver".
@@ -136,16 +152,16 @@ function buildOrbHum() {
   saw.frequency.value = base * 2;
   const bp = c.createBiquadFilter();
   bp.type = "bandpass";
-  bp.frequency.value = 430;
-  bp.Q.value = 5;
+  bp.frequency.value = 460;
+  bp.Q.value = 4;
   const fsweep = c.createOscillator();
   fsweep.type = "sine";
   fsweep.frequency.value = 0.22;
   const fsg = c.createGain();
-  fsg.gain.value = 230;
+  fsg.gain.value = 260;
   fsweep.connect(fsg).connect(bp.frequency);
   const sg = c.createGain();
-  sg.gain.value = 0.1;
+  sg.gain.value = 0.26;
   const trem = c.createOscillator();
   trem.type = "sine";
   trem.frequency.value = 5;
@@ -164,7 +180,7 @@ export function setOrbHum(level: number) {
   const v = Math.max(0, Math.min(1, level));
   if (Math.abs(v - lastHum) < 0.01) return;
   lastHum = v;
-  orbHum.gain.setTargetAtTime(v * 0.26, ctx.currentTime, 0.3);
+  orbHum.gain.setTargetAtTime(v * 0.62, ctx.currentTime, 0.3);
 }
 
 // 0..1 — ambient bed level (ducked while forming so the UFO/carve layer leads)
