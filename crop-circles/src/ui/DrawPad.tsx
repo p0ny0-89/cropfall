@@ -329,7 +329,10 @@ export default function DrawPad() {
 
                 <span className="drawpad-spacer" />
 
-                <button className={"tool-btn" + (sym ? " active" : "")} onClick={() => setSym((s) => !s)} title="Radial symmetry" aria-label="Radial symmetry"><SymIcon /></button>
+                <button className={"tool-btn sym-toggle" + (sym ? " active" : "")} onClick={() => setSym((s) => !s)} title="Radial symmetry" aria-label="Radial symmetry">
+                  <SymIcon />
+                  {!sym && <span className="sym-label">Radial Symmetry</span>}
+                </button>
                 {sym && (
                   <div className="sym-count" title="Mirror count">
                     <button className="brush-btn" onClick={() => setSymCount((n) => Math.max(2, n - 1))} disabled={symCount <= 2} aria-label="Fewer mirrors">−</button>
